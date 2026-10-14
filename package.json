@@ -1,0 +1,22 @@
+{
+  "name": "growth-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Unified Autonomous Growth & Lead Generation OS",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  },
+  "packageManager": "bun@1.2.4"
+}

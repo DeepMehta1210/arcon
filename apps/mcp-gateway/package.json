@@ -1,0 +1,20 @@
+{
+  "name": "@growth-os/mcp-gateway",
+  "version": "0.1.0",
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@growth-os/shared-types": "workspace:*",
+    "@growth-os/verifier": "workspace:*",
+    "@growth-os/copy-linter": "workspace:*",
+    "@growth-os/scrapers": "workspace:*",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
