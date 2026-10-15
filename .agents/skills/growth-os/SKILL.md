@@ -1,17 +1,17 @@
 ---
 name: growth-os
-description: Autonomous Growth & Lead Generation OS. Mines signals, scrapes Google Maps & YC, verifies emails via raw socket SMTP with zero API fees, validates ASD-STE100 compliance, and generates Prospect Dossiers.
+description: Autonomous Growth & Lead Generation OS. Mines signals, scrapes Google Maps & YC, verifies emails via raw socket SMTP with zero API fees, validates ASD-STE100 compliance, generates Prospect Dossiers, and dispatches multi-channel outreach.
 ---
 
 # Growth OS: Antigravity Agent Skill
 
-Use this skill to research companies, qualify leads, verify emails, and generate ASD-STE100 outreach copy.
+Use this skill to research companies, qualify leads, verify emails, generate ASD-STE100 outreach, and dispatch touches.
 
 ---
 
 ## 1. Available Tools via MCP (`apps/mcp-gateway`)
 
-The `growth-os-mcp-gateway` server provides five tools:
+The `growth-os-mcp-gateway` server provides nine tools:
 
 1. **`growth_research_prospect`**:
    - Executes the 5-agent research swarm.
@@ -43,6 +43,20 @@ The `growth-os-mcp-gateway` server provides five tools:
    - Strips invisible Unicode watermark characters.
    - Detects 113 corporate slop words.
 
+7. **`growth_send_email`**:
+   - Dispatches cold email touches with Warmbly rate-limiting and mailbox reputation caps.
+   - Rejects non-compliant copy before transmission.
+   - Emits signed delivery receipts.
+
+8. **`growth_send_whatsapp`**:
+   - Dispatches WhatsApp touches via WAHA.
+   - Applies anti-ban humanized typing jitter.
+   - Rejects non-compliant copy before transmission.
+
+9. **`growth_generate_proposal`**:
+   - Generates bespoke commercial proposals and Statements of Work directly from research dossiers.
+   - Formats content in clean ASD-STE100 Markdown.
+
 ---
 
 ## 2. Command Shortcuts
@@ -50,7 +64,6 @@ The `growth-os-mcp-gateway` server provides five tools:
 ### `/research-company <domain>`
 Run deep investigation on a company domain:
 ```bash
-bun run apps/mcp-gateway/src/index.ts
 # Call growth_research_prospect with {"domain": "<domain>"}
 ```
 
@@ -70,6 +83,24 @@ Run ASD-STE100 compliance check on draft copy:
 Verify an email address using socket handshake:
 ```bash
 # Call growth_verify_email with {"email": "<email>"}
+```
+
+### `/send-email <toEmail> <subject> <body>`
+Dispatch an email touch with quality safeguards:
+```bash
+# Call growth_send_email with {"toEmail": "<toEmail>", "subject": "<subject>", "body": "<body>", "dryRun": true}
+```
+
+### `/send-wa <phone> <text>`
+Dispatch a WhatsApp touch with anti-ban jitter:
+```bash
+# Call growth_send_whatsapp with {"phone": "<phone>", "text": "<text>", "dryRun": true}
+```
+
+### `/draft-proposal <domain>`
+Generate a commercial proposal & SOW:
+```bash
+# Call growth_generate_proposal with {"domain": "<domain>"}
 ```
 
 ---

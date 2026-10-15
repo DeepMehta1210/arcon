@@ -8,6 +8,9 @@ import { verifyEmail } from "@growth-os/verifier";
 import { lintOutreachCopy } from "@growth-os/copy-linter";
 import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@growth-os/scrapers";
 import { runResearchSwarm } from "@growth-os/agent-core";
+import { dispatchColdEmail } from "@growth-os/outbound-email";
+import { dispatchWhatsAppTouch } from "@growth-os/outbound-wa";
+import { generateCommercialProposal } from "@growth-os/doc-generator";
 
 const server = new Server(
   {
@@ -96,6 +99,48 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["domain"],
         },
       },
+      {
+        name: "growth_send_email",
+        description: "Dispatches a cold email touch with rate-limiting, sender reputation caps, and ASD-STE100 linter validation.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            toEmail: { type: "string", description: "Recipient email address" },
+            toName: { type: "string", description: "Recipient full name (optional)" },
+            subject: { type: "string", description: "Email subject line" },
+            body: { type: "string", description: "Email body text (must adhere to ASD-STE100)" },
+            dryRun: { type: "boolean", description: "Simulate send without network delivery", default: true },
+          },
+          required: ["toEmail", "subject", "body"],
+        },
+      },
+      {
+        name: "growth_send_whatsapp",
+        description: "Dispatches a WhatsApp message touch via WAHA with anti-ban humanized typing jitter and ASD-STE100 validation.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            phone: { type: "string", description: "Recipient phone number with country code" },
+            text: { type: "string", description: "WhatsApp message text" },
+            dryRun: { type: "boolean", description: "Simulate send without delivery", default: true },
+          },
+          required: ["phone", "text"],
+        },
+      },
+      {
+        name: "growth_generate_proposal",
+        description: "Generates a structured commercial proposal and Statement of Work conforming to ASD-STE100 directly from a target company domain.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            domain: { type: "string", description: "Company domain (e.g. acme.com)" },
+            serviceOffering: { type: "string", description: "Service offering title", default: "Cloud & AI Architecture Optimization" },
+            monthlyFeeUsd: { type: "number", description: "Proposed monthly retainer in USD", default: 5000 },
+            deliveryWeeks: { type: "number", description: "Implementation schedule duration in weeks", default: 4 },
+          },
+          required: ["domain"],
+        },
+      },
     ],
   };
 });
@@ -157,6 +202,47 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const dossier = await runResearchSwarm({ domain, companyName, contactName, observedSignal });
       return {
         content: [{ type: "text", text: JSON.stringify(dossier, null, 2) }],
+      };
+    }
+
+    if (name === "growth_send_email") {
+      const toEmail = args?.toEmail as string;
+      const toName = args?.toName as string | undefined;
+      const subject = args?.subject as string;
+      const body = args?.body as string;
+      const dryRun = (args?.dryRun as boolean) ?? true;
+      const receipt = await dispatchColdEmail({ toEmail, toName, subject, body, dryRun });
+      return {
+        content: [{ type: "text", text: JSON.stringify(receipt, null, 2) }],
+      };
+    }
+
+    if (name === "growth_send_whatsapp") {
+      const phone = args?.phone as string;
+      const text = args?.text as string;
+      const dryRun = (args?.dryRun as boolean) ?? true;
+      const receipt = await dispatchWhatsAppTouch({ phone, text, dryRun, simulateJitter: true });
+      return {
+        content: [{ type: "text", text: JSON.stringify(receipt, null, 2) }],
+      };
+    }
+
+    if (name === "growth_generate_proposal") {
+      const domain = args?.domain as string;
+      const serviceOffering = (args?.serviceOffering as string) ?? "Cloud & AI Architecture Optimization";
+      const monthlyFeeUsd = (args?.monthlyFeeUsd as number) ?? 5000;
+      const deliveryWeeks = (args?.deliveryWeeks as number) ?? 4;
+      const dossier = await runResearchSwarm({ domain });
+      const proposal = generateCommercialProposal(dossier, {
+        serviceOffering,
+        monthlyFeeUsd,
+        deliveryWeeks,
+      });
+      return {
+        content: [
+          { type: "text", text: proposal.markdownDocument },
+          { type: "text", text: JSON.stringify(proposal, null, 2) },
+        ],
       };
     }
 

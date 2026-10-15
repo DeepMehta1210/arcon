@@ -13,6 +13,9 @@
     "@growth-os/copy-linter": "workspace:*",
     "@growth-os/scrapers": "workspace:*",
     "@growth-os/agent-core": "workspace:*",
+    "@growth-os/outbound-email": "workspace:*",
+    "@growth-os/outbound-wa": "workspace:*",
+    "@growth-os/doc-generator": "workspace:*",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -1,0 +1,17 @@
+{
+  "name": "@growth-os/doc-generator",
+  "version": "0.1.0",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@growth-os/shared-types": "workspace:*",
+    "@growth-os/copy-linter": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
