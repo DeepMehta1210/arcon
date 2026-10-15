@@ -7,6 +7,7 @@ import {
 import { verifyEmail } from "@growth-os/verifier";
 import { lintOutreachCopy } from "@growth-os/copy-linter";
 import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@growth-os/scrapers";
+import { runResearchSwarm } from "@growth-os/agent-core";
 
 const server = new Server(
   {
@@ -81,6 +82,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["text"],
         },
       },
+      {
+        name: "growth_research_prospect",
+        description: "Runs the 5-agent research swarm to profile a company, verify decision maker email, evaluate 5-factor rubric, and generate an ASD-STE100 outreach angle.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            domain: { type: "string", description: "Target company domain (e.g. stripe.com)" },
+            companyName: { type: "string", description: "Company name (optional)" },
+            contactName: { type: "string", description: "Target decision maker full name (optional)" },
+            observedSignal: { type: "string", description: "Observed event, trigger or launch headline (optional)" },
+          },
+          required: ["domain"],
+        },
+      },
     ],
   };
 });
@@ -131,6 +146,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = lintOutreachCopy(text, { enforceSte100 });
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    }
+
+    if (name === "growth_research_prospect") {
+      const domain = args?.domain as string;
+      const companyName = args?.companyName as string | undefined;
+      const contactName = args?.contactName as string | undefined;
+      const observedSignal = args?.observedSignal as string | undefined;
+      const dossier = await runResearchSwarm({ domain, companyName, contactName, observedSignal });
+      return {
+        content: [{ type: "text", text: JSON.stringify(dossier, null, 2) }],
       };
     }
 

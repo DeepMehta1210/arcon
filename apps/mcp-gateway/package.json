@@ -12,6 +12,7 @@
     "@growth-os/verifier": "workspace:*",
     "@growth-os/copy-linter": "workspace:*",
     "@growth-os/scrapers": "workspace:*",
+    "@growth-os/agent-core": "workspace:*",
     "zod": "^3.24.2"
   },
   "devDependencies": {
