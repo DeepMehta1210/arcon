@@ -6,7 +6,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { verifyEmail } from "@growth-os/verifier";
 import { lintOutreachCopy } from "@growth-os/copy-linter";
-import { searchYCCompanies, fetchShowHNSignals } from "@growth-os/scrapers";
+import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@growth-os/scrapers";
 
 const server = new Server(
   {
@@ -57,6 +57,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "growth_scrape_maps",
+        description: "Scrapes local business listings, contacts, and websites by keyword and city.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            keyword: { type: "string", description: "Business type (e.g. dental clinic, gym, cafe)" },
+            city: { type: "string", description: "City and region (e.g. Chicago, IL)" },
+            limit: { type: "number", description: "Max places to return", default: 10 },
+          },
+          required: ["keyword", "city"],
+        },
+      },
+      {
         name: "growth_lint_copy",
         description: "Validates text against ASD-STE100 rules, strips invisible zero-width characters, and detects 113 corporate slop words.",
         inputSchema: {
@@ -99,6 +112,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await verifyEmail(email);
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    }
+
+    if (name === "growth_scrape_maps") {
+      const keyword = args?.keyword as string;
+      const city = args?.city as string;
+      const limit = (args?.limit as number) ?? 10;
+      const places = await scrapeLocalPlaces({ keyword, city, limit });
+      return {
+        content: [{ type: "text", text: JSON.stringify(places, null, 2) }],
       };
     }
 
