@@ -12,7 +12,8 @@
   "dependencies": {
     "drizzle-orm": "^0.39.3",
     "postgres": "^3.4.5",
-    "@growth-os/shared-types": "workspace:*"
+    "@growth-os/shared-types": "workspace:*",
+    "@growth-os/scrapers": "workspace:*"
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.4",

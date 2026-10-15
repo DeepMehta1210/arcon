@@ -6,7 +6,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { verifyEmail } from "@growth-os/verifier";
 import { lintOutreachCopy } from "@growth-os/copy-linter";
-import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@growth-os/scrapers";
+import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces, importLeadsFromCsv } from "@growth-os/scrapers";
 import { runResearchSwarm } from "@growth-os/agent-core";
 import { dispatchColdEmail } from "@growth-os/outbound-email";
 import { dispatchWhatsAppTouch } from "@growth-os/outbound-wa";
@@ -141,6 +141,18 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["domain"],
         },
       },
+      {
+        name: "growth_import_leads_csv",
+        description: "Imports B2B lead datasets from local CSV files into standardized RawLead records.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            filePath: { type: "string", description: "Absolute path to the CSV file" },
+            limit: { type: "number", description: "Maximum records to import", default: 50 },
+          },
+          required: ["filePath"],
+        },
+      },
     ],
   };
 });
@@ -243,6 +255,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           { type: "text", text: proposal.markdownDocument },
           { type: "text", text: JSON.stringify(proposal, null, 2) },
         ],
+      };
+    }
+
+    if (name === "growth_import_leads_csv") {
+      const filePath = args?.filePath as string;
+      const limit = (args?.limit as number) ?? 50;
+      const leads = importLeadsFromCsv(filePath, { limit });
+      return {
+        content: [{ type: "text", text: JSON.stringify(leads, null, 2) }],
       };
     }
 

@@ -17,7 +17,8 @@
     "@growth-os/copy-linter": "workspace:*",
     "@growth-os/verifier": "workspace:*",
     "@growth-os/agent-core": "workspace:*",
-    "@growth-os/scrapers": "workspace:*"
+    "@growth-os/scrapers": "workspace:*",
+    "@growth-os/database": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
