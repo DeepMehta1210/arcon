@@ -35,3 +35,9 @@ variable "jwt_secret" {
   default     = "arcon-super-secure-production-jwt-key-2026"
   sensitive   = true
 }
+
+variable "iam_instance_profile" {
+  description = "Optional IAM instance profile name for EC2 host"
+  type        = string
+  default     = null
+}
