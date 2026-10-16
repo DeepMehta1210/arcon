@@ -125,6 +125,8 @@ resource "aws_instance" "arcon" {
     admin_password = var.admin_password
   })
 
+  user_data_replace_on_change = true
+
   tags = {
     Name        = "arcon-production"
     App         = "arcon"

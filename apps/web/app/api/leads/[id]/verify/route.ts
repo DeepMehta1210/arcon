@@ -25,15 +25,15 @@ export async function POST(
 
     const result = await verifyEmail(email);
     const verificationStatus =
-      result.status === "valid"
+      result.exists
         ? "socket_valid"
-        : result.status === "catch_all"
+        : result.isCatchAll
         ? "catch_all"
         : "socket_invalid";
 
     const updated = store.updateLead(id, {
       verificationStatus,
-      stage: result.status === "valid" ? "verified" : lead.stage
+      stage: result.exists ? "verified" : lead.stage
     });
 
     return NextResponse.json({

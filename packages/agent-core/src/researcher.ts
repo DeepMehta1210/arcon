@@ -81,6 +81,8 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
   dmarcPolicy: "reject" | "quarantine" | "none" | "missing";
   mailProvider: "google" | "microsoft" | "zoho" | "custom";
   diagnosticPainPoint: string;
+  rawHtml?: string;
+  linkedInUrl?: string;
 }> {
   const dnsIntel = await auditDomainDns(domain);
   const start = Date.now();

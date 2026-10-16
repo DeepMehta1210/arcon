@@ -50,7 +50,9 @@ DATABASE_URL=postgresql://postgres:arcon_secure_db_pass_2026@postgres:5432/arcon
 REDIS_URL=redis://redis:6379
 EOF
 
-# 6. Build and launch services via Docker Compose
+# 6. Ensure latest main branch and build services via Docker Compose
+git checkout main || true
+git pull origin main || true
 docker compose up -d --build
 
-echo "=== Arcon Cloud-Init Completed Successfully ==="
+echo "=== Arcon Cloud-Init v2.1 Completed Successfully ==="
