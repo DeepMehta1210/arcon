@@ -40,6 +40,20 @@ jobs:
         with:
           terraform_version: 1.8.0
 
+      - name: Ensure S3 State Bucket Exists
+        run: |
+          BUCKET="arcon-tfstate-115044045469"
+          REGION="${{ secrets.AWS_REGION || vars.AWS_REGION || 'ap-south-1' }}"
+          echo "Checking S3 state bucket: $BUCKET in $REGION"
+          if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            echo "Creating bucket $BUCKET in $REGION..."
+            aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
+            aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
+            aws s3api put-public-access-block --bucket "$BUCKET" --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+          else
+            echo "S3 state bucket $BUCKET already exists."
+          fi
+
       - name: Terraform Init
         run: terraform init
 
@@ -52,7 +66,22 @@ jobs:
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
-        run: terraform apply -auto-approve
+        run: |
+          terraform apply -auto-approve
+          PUBLIC_IP=$(terraform output -raw public_ip)
+          INSTANCE_ID=$(terraform output -raw instance_id)
+          PORTAL_URL=$(terraform output -raw portal_url)
+          
+          echo "### 🚀 Arcon Infrastructure Provisioned Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Elastic Public IP** | \`$PUBLIC_IP\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **EC2 Instance ID** | \`$INSTANCE_ID\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Direct Web URL** | [$PORTAL_URL]($PORTAL_URL) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Architecture** | AWS Graviton ARM64 (\`t4g.micro\` Free Tier) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 💡 **Cloudflare DNS Setup:** Point \`leads.3dices.com\` A record to \`$PUBLIC_IP\` with Proxy status **Proxied** (Orange Cloud ON)." >> $GITHUB_STEP_SUMMARY
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'

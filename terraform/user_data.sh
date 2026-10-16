@@ -6,7 +6,16 @@ apt-get update -y
 apt-get upgrade -y
 apt-get install -y git curl ca-certificates gnupg lsb-release
 
-# 2. Install Docker & Docker Compose
+# 2. Setup 2GB Swap (prevents OOM during Next.js builds on t4g.micro 1GB RAM)
+if [ ! -f /swapfile ]; then
+    fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+# 3. Install Docker & Docker Compose
 mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
