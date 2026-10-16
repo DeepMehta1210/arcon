@@ -40,6 +40,21 @@ jobs:
         with:
           terraform_version: 1.8.0
 
+      - name: Inspect IAM Role Permissions & S3
+        run: |
+          echo "=== Caller Identity ==="
+          aws sts get-caller-identity
+          echo "=== Attached Policies ==="
+          aws iam list-attached-role-policies --role-name github-quant-lab-deploy || echo "Cannot list attached policies"
+          echo "=== Inline Policies ==="
+          aws iam list-role-policies --role-name github-quant-lab-deploy || echo "Cannot list inline policies"
+          echo "=== Existing S3 Buckets ==="
+          aws s3 ls || echo "Cannot list S3 buckets"
+          echo "=== Test S3 Put/Get on State Bucket ==="
+          echo "test" > /tmp/s3test.txt
+          aws s3 cp /tmp/s3test.txt s3://arcon-tfstate-115044045469/test.txt || echo "S3 put failed"
+          aws s3 cp s3://arcon-tfstate-115044045469/test.txt /tmp/s3test-down.txt || echo "S3 get failed"
+
       - name: Ensure S3 State Bucket Exists
         run: |
           BUCKET="arcon-tfstate-115044045469"
