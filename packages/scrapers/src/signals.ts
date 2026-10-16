@@ -1,4 +1,4 @@
-import type { RawLead, SignalEvent } from "@growth-os/shared-types";
+import type { RawLead, SignalEvent } from "@arcon/shared-types";
 import { randomUUID } from "node:crypto";
 
 export interface SignalSearchOptions {
@@ -11,7 +11,7 @@ export async function fetchShowHNSignals(options: SignalSearchOptions = {}): Pro
   const query = options.query ?? "Show HN";
 
   const url = `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(query)}&tags=show_hn&hitsPerPage=${limit}`;
-  const res = await fetch(url, { headers: { "User-Agent": "growth-os/1.0" } });
+  const res = await fetch(url, { headers: { "User-Agent": "arcon/1.0" } });
   if (!res.ok) {
     throw new Error(`Failed to query HN signals: ${res.statusText}`);
   }

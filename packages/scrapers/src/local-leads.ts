@@ -1,4 +1,4 @@
-import type { RawLead } from "@growth-os/shared-types";
+import type { RawLead } from "@arcon/shared-types";
 import { randomUUID } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 
@@ -60,7 +60,9 @@ export function parseCsvRows(csvText: string): string[][] {
  */
 export function extractEmails(raw: string): string[] {
   if (!raw) return [];
-  const matches = raw.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
+  // Separate common TLDs if concatenated with capitalized text e.g. .comNYC -> .com NYC
+  const preprocessed = raw.replace(/\.(com|org|net|io|co|in|uk|ai|tech|me|dev|app)([A-Z])/g, ".$1 $2");
+  const matches = preprocessed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
   if (!matches) return [];
   return Array.from(new Set(matches.map((e) => e.toLowerCase().trim())));
 }

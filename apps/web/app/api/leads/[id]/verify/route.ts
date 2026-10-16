@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { LeadStore } from "@growth-os/database";
-import { verifyEmail } from "@growth-os/verifier";
+import { LeadStore } from "@arcon/database";
+import { verifyEmail } from "@arcon/verifier";
 
 export async function POST(
   _request: Request,

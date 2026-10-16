@@ -1,5 +1,5 @@
 {
-  "name": "@growth-os/database",
+  "name": "@arcon/database",
   "version": "0.1.0",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -12,8 +12,8 @@
   "dependencies": {
     "drizzle-orm": "^0.39.3",
     "postgres": "^3.4.5",
-    "@growth-os/shared-types": "workspace:*",
-    "@growth-os/scrapers": "workspace:*"
+    "@arcon/shared-types": "workspace:*",
+    "@arcon/scrapers": "workspace:*"
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.4",

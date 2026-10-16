@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { generateCommercialProposal } from "./proposal";
-import type { ProspectDossier } from "@growth-os/shared-types";
+import type { ProspectDossier } from "@arcon/shared-types";
 
 describe("Commercial Proposal Generator", () => {
   const mockDossier: ProspectDossier = {

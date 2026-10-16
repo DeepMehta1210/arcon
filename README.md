@@ -1,4 +1,4 @@
-# Unified Growth OS
+# Unified Arcon
 
 > Open-source autonomous GTM and lead generation engine.
 > Controlled by Google Antigravity.
@@ -8,7 +8,7 @@
 
 ## 1. Description
 
-Growth OS consolidates lead generation, verification, and outbound communication into one system.
+Arcon consolidates lead generation, verification, and outbound communication into one system.
 It extracts verified public signals.
 It validates contact routes with zero API fees.
 It enforces clear, humanized outreach copy without corporate buzzwords.
@@ -18,7 +18,7 @@ It enforces clear, humanized outreach copy without corporate buzzwords.
 ## 2. Directory Structure
 
 ```
-growth-os/
+arcon/
 ├── apps/
 │   ├── mcp-gateway/       # MCP tool server for Google Antigravity
 │   ├── web/               # Next.js 16 command dashboard and unified inbox
@@ -73,9 +73,9 @@ Add this entry to your `mcp_config.json`:
 ```json
 {
   "mcpServers": {
-    "growth-os": {
+    "arcon": {
       "command": "bun",
-      "args": ["run", "C:\\Users\\DeepMehta\\Organiz\\Codes\\growth-os\\apps\\mcp-gateway\\src\\index.ts"],
+      "args": ["run", "C:\\Users\\DeepMehta\\Organiz\\Codes\\arcon\\apps\\mcp-gateway\\src\\index.ts"],
       "env": {
         "STE100_STRICT_MODE": "true"
       }

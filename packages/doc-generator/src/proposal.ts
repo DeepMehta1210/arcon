@@ -1,5 +1,5 @@
-import type { ProspectDossier } from "@growth-os/shared-types";
-import { lintOutreachCopy } from "@growth-os/copy-linter";
+import type { ProspectDossier } from "@arcon/shared-types";
+import { lintOutreachCopy } from "@arcon/copy-linter";
 
 export interface ProposalOptions {
   serviceOffering: string;

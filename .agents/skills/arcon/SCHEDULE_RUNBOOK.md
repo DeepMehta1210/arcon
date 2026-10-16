@@ -16,7 +16,7 @@ Flags prospects with qualification scores above 80%.
 
 **Antigravity Command:**
 ```text
-/schedule cron="0 9 * * *" prompt="Run growth-os daily signal sweep. Search Show HN and YC W24 startups. Flag prospects scoring above 80%."
+/schedule cron="0 9 * * *" prompt="Run arcon daily signal sweep. Search Show HN and YC W24 startups. Flag prospects scoring above 80%."
 ```
 
 ---
@@ -28,7 +28,7 @@ Pauses mailboxes if daily send caps reach 50 touches.
 
 **Antigravity Command:**
 ```text
-/schedule cron="0 * * * *" prompt="Run growth-os hourly deliverability check. Check mailbox send caps and verify DNS MX health."
+/schedule cron="0 * * * *" prompt="Run arcon hourly deliverability check. Check mailbox send caps and verify DNS MX health."
 ```
 
 ---
@@ -41,7 +41,7 @@ Alerts you immediately when a hot lead requests a proposal.
 
 **Antigravity Command:**
 ```text
-/schedule cron="*/15 * * * *" prompt="Run growth-os inbox triage sweep. Classify new replies and alert for hot lead responses."
+/schedule cron="*/15 * * * *" prompt="Run arcon inbox triage sweep. Classify new replies and alert for hot lead responses."
 ```
 
 ---

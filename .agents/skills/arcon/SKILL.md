@@ -1,9 +1,9 @@
 ---
-name: growth-os
+name: arcon
 description: Autonomous Growth & Lead Generation OS. Mines signals, scrapes Google Maps & YC, verifies emails via raw socket SMTP with zero API fees, validates ASD-STE100 compliance, generates Prospect Dossiers, and dispatches multi-channel outreach.
 ---
 
-# Growth OS: Antigravity Agent Skill
+# Arcon: Antigravity Agent Skill
 
 Use this skill to research companies, qualify leads, verify emails, generate ASD-STE100 outreach, and dispatch touches.
 
@@ -11,7 +11,7 @@ Use this skill to research companies, qualify leads, verify emails, generate ASD
 
 ## 1. Available Tools via MCP (`apps/mcp-gateway`)
 
-The `growth-os-mcp-gateway` server provides nine tools:
+The `arcon-mcp-gateway` server provides nine tools:
 
 1. **`growth_research_prospect`**:
    - Executes the 5-agent research swarm.

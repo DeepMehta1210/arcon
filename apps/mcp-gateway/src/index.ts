@@ -4,17 +4,17 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { verifyEmail } from "@growth-os/verifier";
-import { lintOutreachCopy } from "@growth-os/copy-linter";
-import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces, importLeadsFromCsv } from "@growth-os/scrapers";
-import { runResearchSwarm } from "@growth-os/agent-core";
-import { dispatchColdEmail } from "@growth-os/outbound-email";
-import { dispatchWhatsAppTouch } from "@growth-os/outbound-wa";
-import { generateCommercialProposal } from "@growth-os/doc-generator";
+import { verifyEmail } from "@arcon/verifier";
+import { lintOutreachCopy } from "@arcon/copy-linter";
+import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces, importLeadsFromCsv, scrapeB2CCreator } from "@arcon/scrapers";
+import { runResearchSwarm } from "@arcon/agent-core";
+import { dispatchColdEmail } from "@arcon/outbound-email";
+import { dispatchWhatsAppTouch } from "@arcon/outbound-wa";
+import { generateCommercialProposal } from "@arcon/doc-generator";
 
 const server = new Server(
   {
-    name: "growth-os-mcp-gateway",
+    name: "arcon-mcp-gateway",
     version: "0.1.0",
   },
   {
@@ -153,6 +153,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ["filePath"],
         },
       },
+      {
+        name: "arcon_scrape_creator",
+        description: "Scrapes B2C creator and brand profiles across YouTube, Instagram, Linktree, and GitHub to extract verified contact info.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            platform: {
+              type: "string",
+              enum: ["youtube", "instagram", "linktree", "github"],
+              description: "Target platform"
+            },
+            identifier: {
+              type: "string",
+              description: "Creator username, handle (@name), or profile URL"
+            }
+          },
+          required: ["platform", "identifier"]
+        }
+      },
     ],
   };
 });
@@ -258,12 +277,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    if (name === "growth_import_leads_csv") {
+    if (name === "growth_import_leads_csv" || name === "arcon_import_leads_csv") {
       const filePath = args?.filePath as string;
       const limit = (args?.limit as number) ?? 50;
       const leads = importLeadsFromCsv(filePath, { limit });
       return {
         content: [{ type: "text", text: JSON.stringify(leads, null, 2) }],
+      };
+    }
+
+    if (name === "arcon_scrape_creator" || name === "growth_scrape_creator") {
+      const platform = args?.platform as "youtube" | "instagram" | "linktree" | "github";
+      const identifier = args?.identifier as string;
+      const lead = await scrapeB2CCreator(platform, identifier);
+      return {
+        content: [{ type: "text", text: JSON.stringify(lead, null, 2) }],
       };
     }
 

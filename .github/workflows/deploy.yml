@@ -1,0 +1,70 @@
+name: CI/CD Pipeline - Test & Deploy to AWS
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # Required for requesting AWS OIDC token
+  contents: read  # Required for actions/checkout
+
+jobs:
+  test:
+    name: Run Test Suite & Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun Runtime
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.4
+
+      - name: Install Dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Execute Full Test Suite
+        run: bun test
+
+  deploy:
+    name: Deploy to AWS EC2 via OIDC
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Deploy via AWS Systems Manager (SSM Run Command)
+        run: |
+          echo "Dispatching deployment command to EC2 target via AWS SSM..."
+          COMMAND_ID=$(aws ssm send-command \
+            --targets "Key=tag:App,Values=arcon" "Key=tag:Environment,Values=production" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Automated CI/CD deployment from GitHub Actions commit ${{ github.sha }}" \
+            --parameters 'commands=[
+              "set -e",
+              "cd /opt/arcon || { echo \"Creating /opt/arcon\"; git clone https://github.com/${{ github.repository }}.git /opt/arcon && cd /opt/arcon; }",
+              "git fetch origin",
+              "git checkout '${{ github.ref_name }}'",
+              "git pull origin '${{ github.ref_name }}'",
+              "docker compose up -d --build",
+              "docker image prune -f"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command dispatched. Command ID: $COMMAND_ID"
+          echo "Waiting for deployment to complete..."
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id $(aws ec2 describe-instances --filters "Name=tag:App,Values=arcon" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+          echo "Deployment succeeded."

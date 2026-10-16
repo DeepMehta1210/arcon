@@ -1,5 +1,5 @@
 {
-  "name": "@growth-os/mcp-gateway",
+  "name": "@arcon/mcp-gateway",
   "version": "0.1.0",
   "main": "./src/index.ts",
   "scripts": {
@@ -8,14 +8,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
-    "@growth-os/shared-types": "workspace:*",
-    "@growth-os/verifier": "workspace:*",
-    "@growth-os/copy-linter": "workspace:*",
-    "@growth-os/scrapers": "workspace:*",
-    "@growth-os/agent-core": "workspace:*",
-    "@growth-os/outbound-email": "workspace:*",
-    "@growth-os/outbound-wa": "workspace:*",
-    "@growth-os/doc-generator": "workspace:*",
+    "@arcon/shared-types": "workspace:*",
+    "@arcon/verifier": "workspace:*",
+    "@arcon/copy-linter": "workspace:*",
+    "@arcon/scrapers": "workspace:*",
+    "@arcon/agent-core": "workspace:*",
+    "@arcon/outbound-email": "workspace:*",
+    "@arcon/outbound-wa": "workspace:*",
+    "@arcon/doc-generator": "workspace:*",
     "zod": "^3.24.2"
   },
   "devDependencies": {

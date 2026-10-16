@@ -1,4 +1,4 @@
-import type { LintResult } from "@growth-os/shared-types";
+import type { LintResult } from "@arcon/shared-types";
 import { validateSTE100, splitIntoSentences, countWords } from "./ste100";
 import slopData from "./slop.json";
 

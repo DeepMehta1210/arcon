@@ -1,4 +1,4 @@
-import type { STE100CheckResult } from "@growth-os/shared-types";
+import type { STE100CheckResult } from "@arcon/shared-types";
 
 const MAX_INSTRUCTION_WORDS = 20;
 const MAX_DESCRIPTIVE_WORDS = 25;

@@ -5,7 +5,7 @@ import * as schema from "./schema";
 
 const connectionString =
   process.env.DATABASE_URL ??
-  "postgresql://postgres:postgres@localhost:5432/growth_os?schema=public";
+  "postgresql://postgres:postgres@localhost:5432/arcon?schema=public";
 
 // For queries and migrations
 export const sql = postgres(connectionString, { max: 10 });

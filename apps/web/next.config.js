@@ -4,11 +4,14 @@ const path = require("node:path");
 const nextConfig = {
   outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: [
-    "@growth-os/shared-types",
-    "@growth-os/copy-linter",
-    "@growth-os/verifier",
-    "@growth-os/agent-core",
-    "@growth-os/scrapers",
+    "@arcon/shared-types",
+    "@arcon/copy-linter",
+    "@arcon/verifier",
+    "@arcon/agent-core",
+    "@arcon/scrapers",
+    "@arcon/database",
+    "@arcon/doc-generator",
+    "@arcon/outbound-email",
   ],
 };
 

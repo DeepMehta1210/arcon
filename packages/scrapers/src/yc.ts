@@ -1,4 +1,4 @@
-import type { RawLead } from "@growth-os/shared-types";
+import type { RawLead } from "@arcon/shared-types";
 import { randomUUID } from "node:crypto";
 
 export interface YCSearchOptions {
@@ -17,7 +17,7 @@ export async function searchYCCompanies(options: YCSearchOptions = {}): Promise<
       `"YC ${batch}" ${options.query ?? "launch"}`
     )}&tags=story&hitsPerPage=${limit}`;
 
-    const res = await fetch(url, { headers: { "User-Agent": "growth-os/1.0" } });
+    const res = await fetch(url, { headers: { "User-Agent": "arcon/1.0" } });
     if (!res.ok) throw new Error(`Algolia query failed: ${res.statusText}`);
 
     const data = await res.json() as {

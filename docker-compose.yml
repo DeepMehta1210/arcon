@@ -1,45 +1,54 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: growth-os-postgres
-    network_mode: bridge
+    container_name: arcon-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: growth_os
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-arcon}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: growth-os-redis
-    network_mode: bridge
+    container_name: arcon-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redisdata:/data
 
-  waha:
-    image: devlikeapro/waha
-    container_name: growth-os-waha
-    network_mode: bridge
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arcon-web
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3030:3030"
     environment:
-      WHATSAPP_HOOK_URL: http://host.docker.internal:3001/api/webhooks/whatsapp
-      WHATSAPP_HOOK_EVENTS: message,session.status
-      WAHA_ZIP_LOGS: "true"
-      WAHA_DASHBOARD_USERNAME: admin
-      WAHA_DASHBOARD_PASSWORD: admin
-    volumes:
-      - wahadata:/app/.sessions
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-arcon}
+      REDIS_URL: redis://redis:6379
+      PORT: 3030
+      JWT_SECRET: ${JWT_SECRET:-arcon-super-secure-production-jwt-key-2026}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ArconAdmin2026!}
+      ZOHO_USER: ${ZOHO_USER:-deep@3dices.com}
+      ZOHO_PASSWORD: ${ZOHO_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
 volumes:
   pgdata:
   redisdata:
-  wahadata:

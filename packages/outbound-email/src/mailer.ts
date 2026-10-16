@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { lintOutreachCopy } from "@growth-os/copy-linter";
+import { lintOutreachCopy } from "@arcon/copy-linter";
 import { randomUUID } from "node:crypto";
 
 export interface SmtpConfig {
@@ -41,7 +41,18 @@ export async function dispatchColdEmail(input: EmailDispatchInput): Promise<Emai
   const receiptId = randomUUID();
   const now = new Date().toISOString();
   const today = now.split("T")[0];
-  const fromEmail = input.smtpConfig?.fromEmail || "outbound@3dices.com";
+
+  const smtpConfig: SmtpConfig | undefined = input.smtpConfig ?? (process.env.SMTP_HOST ? {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "465", 10),
+    secure: process.env.SMTP_SECURE !== "false",
+    user: process.env.SMTP_USER || "",
+    pass: process.env.SMTP_PASS || "",
+    fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "outbound@3dices.com",
+    fromName: process.env.SMTP_FROM_NAME || "3 Dices Team"
+  } : undefined);
+
+  const fromEmail = smtpConfig?.fromEmail || "outbound@3dices.com";
 
   // 1. Guardrail: Daily send limit per mailbox
   if (!sendCounts[fromEmail] || sendCounts[fromEmail].date !== today) {
@@ -54,10 +65,10 @@ export async function dispatchColdEmail(input: EmailDispatchInput): Promise<Emai
     );
   }
 
-  // 2. Pre-send Quality Gate: Run copy through ASD-STE100 and slop linter
+  // 2. Pre-send Quality Gate: Run copy through slop linter (ASD-STE100 optional, default false)
   const lintResult = lintOutreachCopy(input.body, {
-    enforceSte100: input.enforceSte100 ?? true,
-    maxWordsPerSentence: 20
+    enforceSte100: input.enforceSte100 ?? false,
+    maxWordsPerSentence: 35
   });
 
   if (!lintResult.passed) {
@@ -75,7 +86,7 @@ export async function dispatchColdEmail(input: EmailDispatchInput): Promise<Emai
   }
 
   // 3. Dry-run or mock mode when no live SMTP host is specified
-  if (input.dryRun || !input.smtpConfig?.host) {
+  if (input.dryRun || !smtpConfig?.host) {
     sendCounts[fromEmail].count++;
     return {
       receiptId,
@@ -91,17 +102,17 @@ export async function dispatchColdEmail(input: EmailDispatchInput): Promise<Emai
 
   // 4. Live SMTP dispatch via nodemailer
   const transporter = nodemailer.createTransport({
-    host: input.smtpConfig.host,
-    port: input.smtpConfig.port,
-    secure: input.smtpConfig.secure,
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    secure: smtpConfig.secure,
     auth: {
-      user: input.smtpConfig.user,
-      pass: input.smtpConfig.pass
+      user: smtpConfig.user,
+      pass: smtpConfig.pass
     }
   });
 
   const mailOptions = {
-    from: `"${input.smtpConfig.fromName}" <${input.smtpConfig.fromEmail}>`,
+    from: `"${smtpConfig.fromName}" <${smtpConfig.fromEmail}>`,
     to: input.toName ? `"${input.toName}" <${input.toEmail}>` : input.toEmail,
     subject: input.subject,
     text: input.body,

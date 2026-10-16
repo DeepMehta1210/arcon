@@ -1,15 +1,15 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
-import { verifyEmail } from "@growth-os/verifier";
-import { lintOutreachCopy } from "@growth-os/copy-linter";
-import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@growth-os/scrapers";
-import { runResearchSwarm } from "@growth-os/agent-core";
-import { dispatchColdEmail } from "@growth-os/outbound-email";
-import { dispatchWhatsAppTouch } from "@growth-os/outbound-wa";
-import { generateCommercialProposal } from "@growth-os/doc-generator";
+import { verifyEmail } from "@arcon/verifier";
+import { lintOutreachCopy } from "@arcon/copy-linter";
+import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@arcon/scrapers";
+import { runResearchSwarm } from "@arcon/agent-core";
+import { dispatchColdEmail } from "@arcon/outbound-email";
+import { dispatchWhatsAppTouch } from "@arcon/outbound-wa";
+import { generateCommercialProposal } from "@arcon/doc-generator";
 const server = new Server({
-    name: "growth-os-mcp-gateway",
+    name: "arcon-mcp-gateway",
     version: "0.1.0",
 }, {
     capabilities: {

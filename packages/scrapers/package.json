@@ -1,5 +1,5 @@
 {
-  "name": "@growth-os/scrapers",
+  "name": "@arcon/scrapers",
   "version": "0.1.0",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -8,7 +8,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@growth-os/shared-types": "workspace:*"
+    "@arcon/shared-types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

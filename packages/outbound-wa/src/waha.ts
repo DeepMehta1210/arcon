@@ -1,4 +1,4 @@
-import { lintOutreachCopy } from "@growth-os/copy-linter";
+import { lintOutreachCopy } from "@arcon/copy-linter";
 import { randomUUID } from "node:crypto";
 
 export interface WahaConfig {

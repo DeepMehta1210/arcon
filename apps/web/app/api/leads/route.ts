@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { LeadStore, runLeadIngestion } from "@growth-os/database";
+import { LeadStore, runLeadIngestion } from "@arcon/database";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const stage = searchParams.get("stage");
     const query = searchParams.get("q")?.toLowerCase();
-    const limit = parseInt(searchParams.get("limit") ?? "50", 10);
+    const limitParam = searchParams.get("limit");
+    const limit = limitParam === "all" ? 10000 : parseInt(limitParam ?? "1000", 10);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
     const store = LeadStore.getInstance();

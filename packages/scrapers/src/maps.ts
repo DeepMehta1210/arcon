@@ -1,4 +1,4 @@
-import type { RawLead } from "@growth-os/shared-types";
+import type { RawLead } from "@arcon/shared-types";
 import { randomUUID } from "node:crypto";
 
 export interface MapsScrapeOptions {
@@ -17,7 +17,7 @@ export async function geocodeCity(city: string): Promise<{ lat: string; lon: str
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(city)}`;
     const res = await fetch(url, {
-      headers: { "User-Agent": "growth-os/1.0 (contact@3dices.com)" },
+      headers: { "User-Agent": "arcon/1.0 (contact@3dices.com)" },
     });
     if (!res.ok) return null;
     const data = await res.json() as Array<{ lat: string; lon: string }>;
@@ -65,7 +65,7 @@ export async function scrapeLocalPlaces(options: MapsScrapeOptions): Promise<Raw
 
       const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:10];node[${queryTag}](${minLat},${minLon},${maxLat},${maxLon});out;`;
       const res = await fetch(overpassUrl, {
-        headers: { "User-Agent": "growth-os/1.0" },
+        headers: { "User-Agent": "arcon/1.0" },
       });
 
       if (res.ok) {

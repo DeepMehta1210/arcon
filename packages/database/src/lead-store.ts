@@ -1,4 +1,4 @@
-import type { RawLead } from "@growth-os/shared-types";
+import type { RawLead } from "@arcon/shared-types";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
@@ -14,12 +14,12 @@ function getDataDir(): string {
   const candidates = [
     join(process.cwd(), "packages/database/data"),
     join(process.cwd(), "../../packages/database/data"),
-    "C:/Users/DeepMehta/Organiz/Codes/growth-os/packages/database/data"
+    "C:/Users/DeepMehta/Organiz/Codes/arcon/packages/database/data"
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
   }
-  return "C:/Users/DeepMehta/Organiz/Codes/growth-os/packages/database/data";
+  return "C:/Users/DeepMehta/Organiz/Codes/arcon/packages/database/data";
 }
 
 const DATA_DIR = getDataDir();

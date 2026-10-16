@@ -5,6 +5,7 @@
     "companyName": "Esferasoft Solutions UK - Mobile App & Software Development Company",
     "headline": "Software company",
     "emailCandidates": [
+      "ria@esferasoft.co.uk",
       "business@esferasoft.co.uk",
       "partners@esferasoft.com",
       "business@esferasoft.com",
@@ -23,12 +24,108 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "5.000000",
       "reviews": "1",
-      "decisionMakerLinkedin": ""
+      "decisionMakerLinkedin": "",
+      "dossier": {
+        "prospectId": "fef9e353-47f5-40c7-80af-fa69c70ea5ab",
+        "researchedAt": "2026-10-16T17:14:24.703Z",
+        "researchDurationMs": 5085,
+        "company": {
+          "name": "Esferasoft Solutions UK - Mobile App & Software Development Company",
+          "domain": "esferasoft.co.uk",
+          "description": "Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth. Talk to us today.",
+          "stage": "seed",
+          "techStack": [
+            "React",
+            "Next.js",
+            "Vue",
+            "TypeScript",
+            "Go",
+            "Tailwind"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-16",
+              "summary": "Software company",
+              "sourceUrl": "https://esferasoft.co.uk"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Ria Rader",
+          "role": "Founder & Chief Technology Officer",
+          "email": "ria@esferasoft.co.uk",
+          "emailVerification": {
+            "status": "catch_all",
+            "method": "direct_smtp_socket",
+            "mxHost": "aspmx.l.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Ria%20Rader%20esferasoft.co.uk",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at esferasoft.co.uk. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Ria - question about Esferasoft Solutions UK's server response times",
+          "tailoredBody": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your homepage server response latency is sitting around 856ms, which could create user drop-offs during traffic surges.\n\nAt 3 Dices, we partner with growing engineering teams to streamline cloud deployments, cut server latency, and build resilient infrastructure without the overhead of hiring an entire in-house DevOps department.\n\nWould you be open to a quick 10-minute introductory call this Thursday to see if we might be a fit, or would it be helpful if I shared a brief diagnostic teardown of what we found?\n\nBest regards,\nDeep Mehta\nFounder & Cloud Architect | 3 Dices",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0.0074,
+            "burstinessScore": 0.357,
+            "ste100Compliant": true,
+            "passed": true
+          }
+        }
+      },
+      "lastOutbound": {
+        "timestamp": "2026-10-16T13:11:53.846Z",
+        "senderEmail": "sales1@3dices.com",
+        "subject": "Diagnostic report regarding cloud response time",
+        "status": "dry_run_success",
+        "messageId": "<mock-32587c68-ecad-4799-a63f-b9f12526ddc8@3dices.com>"
+      },
+      "decisionMaker": {
+        "fullName": "Ria Rader",
+        "role": "Founder & Chief Technology Officer",
+        "email": "ria@esferasoft.co.uk",
+        "emailVerification": {
+          "status": "catch_all",
+          "method": "direct_smtp_socket",
+          "mxHost": "aspmx.l.google.com"
+        },
+        "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Ria%20Rader%20esferasoft.co.uk",
+        "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at esferasoft.co.uk. Verified via direct SMTP socket probe."
+      },
+      "properEmail": {
+        "selectedPlay": "Tailored Executive B2B Outreach",
+        "targetChannel": "email",
+        "tailoredSubject": "Ria - question about Esferasoft Solutions UK's server response times",
+        "tailoredBody": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your homepage server response latency is sitting around 856ms, which could create user drop-offs during traffic surges.\n\nAt 3 Dices, we partner with growing engineering teams to streamline cloud deployments, cut server latency, and build resilient infrastructure without the overhead of hiring an entire in-house DevOps department.\n\nWould you be open to a quick 10-minute introductory call this Thursday to see if we might be a fit, or would it be helpful if I shared a brief diagnostic teardown of what we found?\n\nBest regards,\nDeep Mehta\nFounder & Cloud Architect | 3 Dices",
+        "lintReport": {
+          "zeroWidthStripped": 0,
+          "slopScore": 0.0074,
+          "burstinessScore": 0.357,
+          "ste100Compliant": true,
+          "passed": true
+        }
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
-    "stage": "researched",
-    "score": 70,
-    "verificationStatus": "socket_invalid"
+    "stage": "sourced",
+    "score": 82,
+    "verificationStatus": "socket_invalid",
+    "notes": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your homepage server response latency is sitting around 856ms, which could create user drop-offs during traffic surges.\n\nAt 3 Dices, we partner with growing engineering teams to streamline cloud deployments, cut server latency, and build resilient infrastructure without the overhead of hiring an entire in-house DevOps department.\n\nWould you be open to a quick 10-minute introductory call this Thursday to see if we might be a fit, or would it be helpful if I shared a brief diagnostic teardown of what we found?\n\nBest regards,\nDeep Mehta\nFounder & Cloud Architect | 3 Dices",
+    "contactName": "Ria Rader"
   },
   {
     "id": "a169b2c2-eca2-4872-9e38-b7f9f75f0b1a",
@@ -58,7 +155,7 @@
     "discoveredAt": "2026-10-15T18:21:26.877Z",
     "stage": "researched",
     "score": 100,
-    "verificationStatus": "unverified"
+    "verificationStatus": "socket_invalid"
   },
   {
     "id": "c052020c-8b1e-4333-808b-6bc240e41083",
@@ -20026,6 +20123,345 @@
     "discoveredAt": "2026-10-15T18:21:27.155Z",
     "stage": "sourced",
     "score": 40,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "c74f11f2-cb4b-4c13-b4cb-2634247048af",
+    "source": "github",
+    "companyName": "vercel",
+    "contactName": "shadcn",
+    "headline": "GitHub Developer (17080 followers, 228 repos)",
+    "emailCandidates": [],
+    "websiteUrl": "https://github.com/shadcn",
+    "socialUrls": {
+      "github": "https://github.com/shadcn"
+    },
+    "signalData": {
+      "platform": "github",
+      "bio": "I own a computer.",
+      "repos": 228,
+      "followers": 17080
+    },
+    "discoveredAt": "2026-10-16T07:50:41.252Z",
+    "stage": "sourced",
+    "score": 50,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "92ffd0b1-048a-4aad-91b1-5ff9a0326ff3",
+    "source": "youtube",
+    "companyName": "Marques Brownlee",
+    "contactName": "mkbhd",
+    "headline": "YouTube Creator (1.17 million subscribers)",
+    "emailCandidates": [
+      "business@mkbhd.comnyc",
+      "business@mkbhd.com",
+      "nbusiness@mkbhd.com"
+    ],
+    "websiteUrl": "https://www.youtube.com/@mkbhd",
+    "socialUrls": {
+      "youtube": "https://www.youtube.com/@mkbhd",
+      "instagram": "http://instagram.com/MKBHD",
+      "twitter": "http://twitter.com/MKBHD"
+    },
+    "signalData": {
+      "platform": "youtube",
+      "subscribers": "1.17 million subscribers",
+      "descriptionSnippet": "MKBHD: Quality Tech Videos | YouTuber | Geek | Consumer Electronics | Tech Head | Internet Personality!business@MKBHD.comNYC"
+    },
+    "discoveredAt": "2026-10-16T07:51:01.955Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "socket_invalid"
+  },
+  {
+    "id": "ff5a7c05-9863-4a95-8c80-e5cf35463bc4",
+    "source": "youtube",
+    "companyName": "Tech Burner",
+    "contactName": "techburner",
+    "headline": "YouTube Creator (597 thousand subscribers)",
+    "emailCandidates": [],
+    "websiteUrl": "https://www.youtube.com/@techburner",
+    "socialUrls": {
+      "youtube": "https://www.youtube.com/@techburner",
+      "instagram": "https://www.instagram.com/techburner",
+      "twitter": "https://twitter.com/tech_burner"
+    },
+    "signalData": {
+      "platform": "youtube",
+      "subscribers": "597 thousand subscribers",
+      "descriptionSnippet": "Subscribe 🔥"
+    },
+    "discoveredAt": "2026-10-16T07:55:01.751Z",
+    "stage": "sourced",
+    "score": 50,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "c91bea70-e2dc-415a-a2d0-f0a47ffdd2ec",
+    "source": "github",
+    "companyName": "vercel team @nuxt",
+    "contactName": "Anthony Fu",
+    "headline": "GitHub Developer (40463 followers, 404 repos)",
+    "emailCandidates": [],
+    "websiteUrl": "https://antfu.me",
+    "location": {
+      "rawAddress": "Gifu, Japan"
+    },
+    "socialUrls": {
+      "github": "https://github.com/antfu"
+    },
+    "signalData": {
+      "platform": "github",
+      "bio": "A ship in harbor is safe, but that is not what ships are built for.",
+      "repos": 404,
+      "followers": 40463
+    },
+    "discoveredAt": "2026-10-16T07:55:02.244Z",
+    "stage": "sourced",
+    "score": 50,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "10125474-437e-494f-a429-69d246c87c4d",
+    "source": "linktree",
+    "companyName": "alexhormozi",
+    "contactName": "alexhormozi",
+    "headline": "Linktree Creator Profile",
+    "emailCandidates": [],
+    "phone": "1788809939000",
+    "websiteUrl": "https://linktr.ee/alexhormozi",
+    "socialUrls": {
+      "linktree": "https://linktr.ee/alexhormozi"
+    },
+    "signalData": {
+      "platform": "linktree",
+      "totalLinksDiscovered": 1
+    },
+    "discoveredAt": "2026-10-16T07:55:04.519Z",
+    "stage": "researched",
+    "score": 70,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "9e67f691-9d04-4e6e-8f65-51271e0dc068",
+    "source": "signal_finder",
+    "companyName": "Videre",
+    "headline": "Show HN: Videre – a Rust CLI to manage your photos and videos with joy",
+    "contactName": "erhangundogan",
+    "emailCandidates": [
+      "founders@videre.sh",
+      "hello@videre.sh"
+    ],
+    "websiteUrl": "https://videre.sh/",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=erhangundogan",
+      "discussion": "https://news.ycombinator.com/item?id=50117598"
+    },
+    "signalData": {
+      "points": 1,
+      "comments": 0,
+      "hnId": "50117598"
+    },
+    "discoveredAt": "2026-10-16T12:35:08.091Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "1bddf499-f565-4f51-adbd-64a08cab60dd",
+    "source": "signal_finder",
+    "companyName": "Cr34te.it",
+    "headline": "Show HN: Cr34te.it – a website anyone can rewrite one turn at a time with AI",
+    "contactName": "y42",
+    "emailCandidates": [
+      "founders@cr34te.it",
+      "hello@cr34te.it"
+    ],
+    "websiteUrl": "https://cr34te.it/",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=y42",
+      "discussion": "https://news.ycombinator.com/item?id=50117588"
+    },
+    "signalData": {
+      "points": 1,
+      "comments": 0,
+      "hnId": "50117588"
+    },
+    "discoveredAt": "2026-10-16T12:35:08.093Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "ed5b9f4e-eadb-493f-9d1d-4a02f554cef8",
+    "source": "signal_finder",
+    "companyName": "OpenRegistry",
+    "headline": "Show HN: OpenRegistry – live company filings directly from 80 gov registries",
+    "contactName": "sophymarine",
+    "emailCandidates": [
+      "founders@github.com",
+      "hello@github.com"
+    ],
+    "websiteUrl": "https://github.com/sophymarine/openregistry",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=sophymarine",
+      "discussion": "https://news.ycombinator.com/item?id=50117510"
+    },
+    "signalData": {
+      "points": 2,
+      "comments": 0,
+      "hnId": "50117510"
+    },
+    "discoveredAt": "2026-10-16T12:35:08.093Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "27764ce8-49fb-4218-97bf-cad05add1dc6",
+    "source": "signal_finder",
+    "companyName": "Katalog",
+    "headline": "Show HN: Katalog – a fast local music library app for Mac (91k tracks in ~1s)",
+    "contactName": "TG-labs",
+    "emailCandidates": [
+      "founders@musickatalog.com",
+      "hello@musickatalog.com"
+    ],
+    "websiteUrl": "https://musickatalog.com",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=TG-labs",
+      "discussion": "https://news.ycombinator.com/item?id=50117455"
+    },
+    "signalData": {
+      "points": 1,
+      "comments": 0,
+      "hnId": "50117455"
+    },
+    "discoveredAt": "2026-10-16T12:35:08.093Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "32b84ba2-41f0-4950-abc9-81165ced251a",
+    "source": "signal_finder",
+    "companyName": "Lisorto",
+    "headline": "Show HN: Lisorto – Tidy your Mac's Downloads on-device, see every move first",
+    "contactName": "AlexandrBel",
+    "emailCandidates": [
+      "founders@lisorto.app",
+      "hello@lisorto.app"
+    ],
+    "websiteUrl": "https://lisorto.app",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=AlexandrBel",
+      "discussion": "https://news.ycombinator.com/item?id=50117399"
+    },
+    "signalData": {
+      "points": 3,
+      "comments": 0,
+      "hnId": "50117399"
+    },
+    "discoveredAt": "2026-10-16T12:35:08.093Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "2a8b4e7b-5a70-40ae-a10d-1f7fd0023984",
+    "source": "yc_directory",
+    "companyName": "Launch HN",
+    "headline": "Launch HN: Double (YC W24) – Index Investing with 0% Expense Ratios",
+    "contactName": "jjmaxwell4",
+    "emailCandidates": [],
+    "socialUrls": {
+      "hn": "https://news.ycombinator.com/user?id=jjmaxwell4",
+      "discussion": "https://news.ycombinator.com/item?id=42377018"
+    },
+    "signalData": {
+      "batch": "W24",
+      "hnId": "42377018",
+      "author": "jjmaxwell4"
+    },
+    "discoveredAt": "2026-10-16T12:35:21.293Z",
+    "stage": "sourced",
+    "score": 30,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "6da712bd-e6ee-413a-993c-5b7c71135e27",
+    "source": "signal_finder",
+    "companyName": "Paveo",
+    "headline": "Show HN: Paveo – Check Claude Code, Codex and Cursor commands before they run",
+    "contactName": "Mfj_faiz",
+    "emailCandidates": [
+      "founders@github.com",
+      "hello@github.com"
+    ],
+    "websiteUrl": "https://github.com/paveo-dev/paveo",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=Mfj_faiz",
+      "discussion": "https://news.ycombinator.com/item?id=50117874"
+    },
+    "signalData": {
+      "points": 1,
+      "comments": 0,
+      "hnId": "50117874"
+    },
+    "discoveredAt": "2026-10-16T13:08:31.689Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "4dedf195-4a3b-4d6c-8734-3bde1c47185e",
+    "source": "signal_finder",
+    "companyName": "OutClocked, a nearly impossible daily trivia game",
+    "headline": "Show HN: OutClocked, a nearly impossible daily trivia game",
+    "contactName": "karolgajda",
+    "emailCandidates": [
+      "founders@outclocked.com",
+      "hello@outclocked.com"
+    ],
+    "websiteUrl": "https://outclocked.com/",
+    "socialUrls": {
+      "authorProfile": "https://news.ycombinator.com/user?id=karolgajda",
+      "discussion": "https://news.ycombinator.com/item?id=50117846"
+    },
+    "signalData": {
+      "points": 1,
+      "comments": 0,
+      "hnId": "50117846"
+    },
+    "discoveredAt": "2026-10-16T13:08:31.689Z",
+    "stage": "researched",
+    "score": 80,
+    "verificationStatus": "unverified"
+  },
+  {
+    "id": "d4a4786c-fc87-4df1-9b63-c61db75c6671",
+    "source": "google_maps",
+    "companyName": "London IT Services Co",
+    "headline": "Local IT Services in London",
+    "emailCandidates": [
+      "contact@londonbiz.com"
+    ],
+    "phone": "+1 555-0199",
+    "websiteUrl": "https://londonbiz.com",
+    "location": {
+      "city": "London"
+    },
+    "socialUrls": {},
+    "signalData": {
+      "geocoded": {
+        "lat": "51.5074456",
+        "lon": "-0.1277653"
+      }
+    },
+    "discoveredAt": "2026-10-16T13:12:13.791Z",
+    "stage": "researched",
+    "score": 70,
     "verificationStatus": "unverified"
   }
 ]

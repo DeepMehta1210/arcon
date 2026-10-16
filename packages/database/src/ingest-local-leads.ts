@@ -1,4 +1,4 @@
-import { importLeadsFromCsv } from "@growth-os/scrapers";
+import { importLeadsFromCsv } from "@arcon/scrapers";
 import { LeadStore } from "./lead-store";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
