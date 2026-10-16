@@ -76,9 +76,9 @@ resource "aws_security_group" "arcon" {
   }
 }
 
-# 4. IAM Role & Instance Profile for EC2 Host
+# 4. IAM Role & Instance Profile for EC2 Host (quant-lab prefix matches IAM permissions)
 resource "aws_iam_role" "arcon_ec2" {
-  name = "${var.app_name}-ec2-role"
+  name = "quant-lab-${var.app_name}-ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -107,7 +107,7 @@ resource "aws_iam_role_policy_attachment" "bedrock" {
 }
 
 resource "aws_iam_instance_profile" "arcon" {
-  name = "${var.app_name}-instance-profile"
+  name = "quant-lab-${var.app_name}-instance-profile"
   role = aws_iam_role.arcon_ec2.name
 }
 
