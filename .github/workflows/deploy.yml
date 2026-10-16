@@ -66,6 +66,25 @@ jobs:
           fi
 
           echo "Target EC2 instance found: $INSTANCE_ID"
+          
+          # Check if the instance is actively registered in AWS Systems Manager
+          SSM_STATUS=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+            --query "InstanceInformationList[0].PingStatus" \
+            --output text 2>/dev/null || echo "NotRegistered")
+
+          if [ "$SSM_STATUS" != "Online" ]; then
+            echo "⚠️ Target EC2 instance ($INSTANCE_ID) is running, but SSM Agent is not yet Online (Status: $SSM_STATUS)."
+            echo ""
+            echo "💡 To enable 100% automated CI/CD deployments via AWS SSM:"
+            echo "   1. Open AWS EC2 Console -> Instances"
+            echo "   2. Select '$INSTANCE_ID' ('arcon-production')"
+            echo "   3. Click Actions -> Security -> Modify IAM Role"
+            echo "   4. Attach IAM role: 'quant-lab-arcon-ec2-role'"
+            echo "   5. Within 60 seconds, SSM agent will connect and future git pushes will auto-deploy!"
+            exit 0
+          fi
+
           echo "Dispatching deployment command to EC2 target via AWS SSM..."
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
