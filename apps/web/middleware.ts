@@ -15,6 +15,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 1. Check for Cloudflare Zero Trust Access authentication at edge
+  const cfEmail = request.headers.get("cf-access-authenticated-user-email");
+  if (cfEmail) {
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const session = token ? await verifySession(token) : null;
 
