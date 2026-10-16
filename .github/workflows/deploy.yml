@@ -67,6 +67,9 @@ jobs:
 
           echo "Target EC2 instance found: $INSTANCE_ID"
           
+          echo "=== Fetching EC2 System Console Log ==="
+          aws ec2 get-console-output --instance-id "$INSTANCE_ID" --output text | tail -n 80 || echo "Console log not yet available"
+          
           # Check if the instance is actively registered in AWS Systems Manager
           SSM_STATUS=$(aws ssm describe-instance-information \
             --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
