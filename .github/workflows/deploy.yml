@@ -54,9 +54,21 @@ jobs:
 
       - name: Deploy via AWS Systems Manager (SSM Run Command)
         run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:App,Values=arcon" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)
+
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "⚠️ Notice: No running EC2 instance found with tags 'App=arcon' and 'Environment=production' in region ${{ secrets.AWS_REGION || vars.AWS_REGION || 'us-east-1' }}."
+            echo "Once your EC2 instance is launched with tag App=arcon, pushes to main will automatically deploy to it."
+            exit 0
+          fi
+
+          echo "Target EC2 instance found: $INSTANCE_ID"
           echo "Dispatching deployment command to EC2 target via AWS SSM..."
           COMMAND_ID=$(aws ssm send-command \
-            --targets "Key=tag:App,Values=arcon" "Key=tag:Environment,Values=production" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "Automated CI/CD deployment from GitHub Actions commit ${{ github.sha }}" \
             --parameters 'commands=[
@@ -73,5 +85,5 @@ jobs:
 
           echo "SSM Command dispatched. Command ID: $COMMAND_ID"
           echo "Waiting for deployment to complete..."
-          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id $(aws ec2 describe-instances --filters "Name=tag:App,Values=arcon" "Name=instance-state-name,Values=running" --query "Reservations[0].Instances[0].InstanceId" --output text)
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
           echo "Deployment succeeded."
