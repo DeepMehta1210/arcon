@@ -1,4 +1,4 @@
-FROM oven/bun:1.2.4 AS base
+FROM oven/bun:1.4.2 AS base
 WORKDIR /app
 
 # Stage 1: Install dependencies
@@ -15,7 +15,7 @@ COPY packages/doc-generator/package.json ./packages/doc-generator/
 COPY packages/outbound-email/package.json ./packages/outbound-email/
 COPY packages/outbound-wa/package.json ./packages/outbound-wa/
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Stage 2: Build the monorepo
 FROM base AS builder

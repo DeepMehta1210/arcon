@@ -22,10 +22,10 @@ jobs:
       - name: Setup Bun Runtime
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.2.4
+          bun-version: 1.4.2
 
       - name: Install Dependencies
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: Execute Full Test Suite
         run: bun test
@@ -42,8 +42,8 @@ jobs:
       - name: Configure AWS Credentials via GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME || vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'us-east-1' }}
 
       - name: Deploy via AWS Systems Manager (SSM Run Command)
         run: |
