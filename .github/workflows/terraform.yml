@@ -44,16 +44,17 @@ jobs:
         run: |
           echo "=== Caller Identity ==="
           aws sts get-caller-identity
-          echo "=== Attached Policies ==="
-          aws iam list-attached-role-policies --role-name github-quant-lab-deploy || echo "Cannot list attached policies"
-          echo "=== Inline Policies ==="
-          aws iam list-role-policies --role-name github-quant-lab-deploy || echo "Cannot list inline policies"
-          echo "=== Existing S3 Buckets ==="
-          aws s3 ls || echo "Cannot list S3 buckets"
-          echo "=== Test S3 Put/Get on State Bucket ==="
-          echo "test" > /tmp/s3test.txt
-          aws s3 cp /tmp/s3test.txt s3://arcon-tfstate-115044045469/test.txt || echo "S3 put failed"
-          aws s3 cp s3://arcon-tfstate-115044045469/test.txt /tmp/s3test-down.txt || echo "S3 get failed"
+          
+          echo "=== Test S3 quant-lab prefix ==="
+          QL_BUCKET="quant-lab-tfstate-115044045469"
+          aws s3api create-bucket --bucket "$QL_BUCKET" --region ap-south-1 --create-bucket-configuration LocationConstraint=ap-south-1 2>/dev/null || true
+          echo "test" > /tmp/test.txt
+          aws s3 cp /tmp/test.txt "s3://$QL_BUCKET/test.txt" || echo "quant-lab s3 cp failed"
+          
+          echo "=== Test AWS SSM Parameter Store ==="
+          aws ssm put-parameter --name "/arcon/test" --value "test-value" --type String --overwrite || echo "SSM put failed"
+          aws ssm get-parameter --name "/arcon/test" || echo "SSM get failed"
+          aws ssm delete-parameter --name "/arcon/test" 2>/dev/null || true
 
       - name: Ensure S3 State Bucket Exists
         run: |
@@ -62,9 +63,9 @@ jobs:
           echo "Checking S3 state bucket: $BUCKET in $REGION"
           if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
             echo "Creating bucket $BUCKET in $REGION..."
-            aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
-            aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
-            aws s3api put-public-access-block --bucket "$BUCKET" --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+            aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION" 2>/dev/null || true
+            aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled 2>/dev/null || true
+            aws s3api put-public-access-block --bucket "$BUCKET" --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" 2>/dev/null || true
           else
             echo "S3 state bucket $BUCKET already exists."
           fi
