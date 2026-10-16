@@ -8,8 +8,8 @@ terraform {
   }
 
   backend "s3" {
-    bucket = "arcon-tfstate-115044045469"
-    key    = "production/terraform.tfstate"
+    bucket = "quant-lab-tfstate-115044045469"
+    key    = "arcon/production/terraform.tfstate"
     region = "ap-south-1"
   }
 }
