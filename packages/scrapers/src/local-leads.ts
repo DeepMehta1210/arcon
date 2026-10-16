@@ -100,6 +100,7 @@ export function importLeadsFromCsv(filePath: string, options: CsvImportOptions =
       rowObj["name"] ||
       rowObj["company"] ||
       rowObj["company name"] ||
+      rowObj["title"] ||
       rowObj["website"]?.replace(/https?:\/\/(www\.)?/, "").split("/")[0] ||
       "Unknown Company";
 
