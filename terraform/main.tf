@@ -106,17 +106,12 @@ resource "aws_iam_role_policy_attachment" "bedrock" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
 }
 
-resource "aws_iam_instance_profile" "arcon_ec2" {
-  name = "quant-lab-${var.app_name}-ec2-profile"
-  role = aws_iam_role.arcon_ec2.name
-}
-
 # 5. EC2 Instance (Free Tier Eligible)
 resource "aws_instance" "arcon" {
   ami                  = data.aws_ami.ubuntu.id
   instance_type        = var.instance_type
   subnet_id            = element(data.aws_subnets.default.ids, 0)
-  iam_instance_profile = aws_iam_instance_profile.arcon_ec2.name
+  iam_instance_profile = var.iam_instance_profile
   vpc_security_group_ids = [aws_security_group.arcon.id]
 
   root_block_device {
