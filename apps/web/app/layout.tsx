@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Archon | Autonomous Lead & Revenue Engine",
+  title: "Arcon | Autonomous Lead & Revenue Engine",
   description: "Autonomous command center for signal mining, lead verification, and multi-channel outreach in ASD-STE100.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
