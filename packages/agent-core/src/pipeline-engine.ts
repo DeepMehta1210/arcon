@@ -7,17 +7,51 @@ export const GENERIC_EMAIL_PREFIXES = new Set([
   "careers", "jobs", "team", "office", "admin", "press", "media",
   "enquiries", "inquiries", "mail", "general", "marketing", "hr",
   "feedback", "customerservice", "legal", "compliance", "privacy",
-  "security", "devnull", "bounce", "postmaster", "hostmaster", "webmaster"
+  "security", "devnull", "bounce", "postmaster", "hostmaster", "webmaster",
+  "hi", "inquire"
 ]);
+
+const INVALID_EMAIL_EXTENSIONS = /\.(jpe?g|png|webp|svg|gif|ico|bmp|tiff?|pdf|css|js)$/i;
+
+/**
+ * Validates that an email conforms to strict RFC syntax and is NOT an image asset or invalid file.
+ */
+export function isValidEmail(email?: string): boolean {
+  if (!email || typeof email !== "string") return false;
+  const trimmed = email.trim().toLowerCase();
+  if (INVALID_EMAIL_EXTENSIONS.test(trimmed)) return false;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  if (!emailRegex.test(trimmed)) return false;
+  const parts = trimmed.split("@");
+  if (parts.length !== 2) return false;
+  const domainParts = parts[1].split(".");
+  const tld = domainParts[domainParts.length - 1];
+  if (!tld || tld.length < 2 || !/^[a-z]+$/.test(tld)) return false;
+  return true;
+}
 
 /**
  * Checks whether an email address is a shared/generic company inbox (e.g. sales@, info@)
  * rather than a direct personal email of a Founder/Executive.
  */
 export function isGenericEmail(email?: string): boolean {
-  if (!email || !email.includes("@")) return true;
+  if (!email || !isValidEmail(email)) return true;
   const localPart = email.split("@")[0].toLowerCase().trim();
   return GENERIC_EMAIL_PREFIXES.has(localPart);
+}
+
+/**
+ * Cleans spammy SEO titles and keyword stuffing from company names.
+ * e.g. "Westferry Tech | Website Development Company | London UK" -> "Westferry Tech"
+ */
+export function cleanCompanyName(raw?: string): string {
+  if (!raw) return "Company";
+  let cleaned = raw.trim();
+  // Strip everything after SEO delimiter: | - – — • :
+  cleaned = cleaned.split(/\s*[-–—|•:]\s*/)[0].trim();
+  // Strip leading prefixes like "Welcome to"
+  cleaned = cleaned.replace(/^Welcome to\s+/i, "").trim();
+  return cleaned || raw.slice(0, 30).trim();
 }
 
 export interface PipelineLeadInput {
@@ -75,10 +109,12 @@ export async function enrichAndPersonalizeLead(
     domain = `${lead.companyName.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
   }
 
+  const cleanedCompany = cleanCompanyName(lead.companyName);
+
   // 1. Run the multi-agent research swarm to discover the Decision Maker
   const dossier = await runResearchSwarm({
     domain,
-    companyName: lead.companyName,
+    companyName: cleanedCompany,
     contactName: lead.contactName,
     observedSignal: lead.headline
   });
@@ -86,7 +122,7 @@ export async function enrichAndPersonalizeLead(
   const discoveredPersonName = dossier.decisionMaker.fullName || lead.contactName;
 
   // 2. Select ONLY personal candidate emails (strictly excluding sales@, info@, support@, etc.)
-  const personalCandidates = lead.emailCandidates.filter((e) => !isGenericEmail(e));
+  const personalCandidates = lead.emailCandidates.filter((e) => !isGenericEmail(e) && isValidEmail(e));
 
   // Add the discovered decision maker email if personal
   if (dossier.decisionMaker.email && !isGenericEmail(dossier.decisionMaker.email)) {
@@ -141,15 +177,15 @@ export async function enrichAndPersonalizeLead(
 
   const subject =
     dossier.recommendedOutreach?.tailoredSubject ||
-    `Question regarding ${lead.companyName}'s cloud infrastructure`;
+    `Question regarding ${cleanedCompany}'s cloud infrastructure`;
 
   const body =
     dossier.recommendedOutreach?.tailoredBody ||
-    `Hi ${firstName || "there"},\n\nI was reviewing ${lead.companyName}'s infrastructure and noticed your engineering team is actively scaling.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40%.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder, 3 Dices`;
+    `Hi ${firstName || "there"},\n\nI was reviewing ${cleanedCompany}'s infrastructure and noticed your engineering team is actively scaling.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40%.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder, 3 Dices`;
 
   return {
     leadId: lead.id,
-    companyName: lead.companyName,
+    companyName: cleanedCompany,
     isValidated: isVerified && isPersonalDecisionMaker,
     verificationStatus,
     targetEmail: finalTargetEmail,

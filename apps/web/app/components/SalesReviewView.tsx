@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   ShieldCheck,
+  ShieldAlert,
   Sparkles,
   Send,
   RefreshCw,
@@ -47,18 +48,63 @@ export interface StoredLead {
   signalData?: Record<string, unknown>;
 }
 
-const GENERIC_EMAIL_PREFIXES = new Set([
+export const GENERIC_EMAIL_PREFIXES = new Set([
   "sales", "info", "support", "contact", "hello", "help", "billing",
   "careers", "jobs", "team", "office", "admin", "press", "media",
   "enquiries", "inquiries", "mail", "general", "marketing", "hr",
   "feedback", "customerservice", "legal", "compliance", "privacy",
-  "security", "devnull", "bounce"
+  "security", "devnull", "bounce", "postmaster", "hostmaster", "webmaster",
+  "hi", "inquire"
 ]);
 
-function isGenericEmail(email?: string): boolean {
-  if (!email || !email.includes("@")) return true;
+const INVALID_EMAIL_EXTENSIONS = /\.(jpe?g|png|webp|svg|gif|ico|bmp|tiff?|pdf|css|js)$/i;
+
+export function isValidEmail(email?: string): boolean {
+  if (!email || typeof email !== "string") return false;
+  const trimmed = email.trim().toLowerCase();
+  if (INVALID_EMAIL_EXTENSIONS.test(trimmed)) return false;
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  if (!emailRegex.test(trimmed)) return false;
+  const parts = trimmed.split("@");
+  if (parts.length !== 2) return false;
+  const domainParts = parts[1].split(".");
+  const tld = domainParts[domainParts.length - 1];
+  if (!tld || tld.length < 2 || !/^[a-z]+$/.test(tld)) return false;
+  return true;
+}
+
+export function isGenericEmail(email?: string): boolean {
+  if (!email || !isValidEmail(email)) return true;
   const localPart = email.split("@")[0].toLowerCase().trim();
   return GENERIC_EMAIL_PREFIXES.has(localPart);
+}
+
+export function cleanCompanyName(raw?: string): string {
+  if (!raw) return "Company";
+  let cleaned = raw.trim();
+  cleaned = cleaned.split(/\s*[-–—|•:]\s*/)[0].trim();
+  cleaned = cleaned.replace(/^Welcome to\s+/i, "").trim();
+  return cleaned || raw.slice(0, 30).trim();
+}
+
+/**
+ * Single source of truth for leads qualified for the Sales Review command center.
+ * Must strictly require a personal, non-generic decision maker email.
+ */
+export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
+  if (lead.stage === "contacted" || lead.stage === "replied") return false;
+
+  // Must have a personal target email
+  const draftTarget = (lead.signalData as any)?.draftEmail?.targetEmail;
+  const target = draftTarget || lead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
+
+  if (!target || isGenericEmail(target) || !isValidEmail(target)) return false;
+
+  // Must have a generated draft or be marked researched with socket validation
+  const hasDraft = Boolean((lead.signalData as any)?.draftEmail?.body);
+  const isSocketOk = lead.verificationStatus === "socket_valid" || lead.verificationStatus === "catch_all";
+
+  return (lead.stage === "researched" && isSocketOk) || hasDraft;
 }
 
 interface SalesReviewViewProps {
@@ -75,14 +121,7 @@ interface SalesReviewViewProps {
 export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesReviewViewProps) {
   // Filter leads ready for sales review: Must be personal decision maker (no generic sales@ or info@)
   const readyLeads = useMemo(() => {
-    return leads.filter((l) => {
-      if (l.stage === "contacted" || l.stage === "replied") return false;
-      const draftTarget = (l.signalData as any)?.draftEmail?.targetEmail;
-      const target = draftTarget || l.emailCandidates.find((e) => !isGenericEmail(e));
-      if (!target || isGenericEmail(target)) return false;
-      const hasDraft = !!(l.signalData as any)?.draftEmail;
-      return l.stage === "researched" || hasDraft;
-    });
+    return leads.filter(isLeadReadyForSalesReview);
   }, [leads]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -106,27 +145,58 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
   const [processingBatch, setProcessingBatch] = useState(false);
   const [batchSuccess, setBatchSuccess] = useState<string | null>(null);
 
+  // Live autonomous worker status
+  const [workerStatus, setWorkerStatus] = useState<{
+    isActive: boolean;
+    currentActivity: string;
+    totalLeadsEnriched: number;
+    totalLeadsVerifiedForSales: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const fetchWorker = async () => {
+      try {
+        const res = await fetch("/api/pipeline/worker-status");
+        const data = await res.json();
+        if (data.success && data.worker) {
+          setWorkerStatus(data.worker);
+        }
+      } catch {
+        // quiet ignore
+      }
+    };
+    fetchWorker();
+    const interval = setInterval(fetchWorker, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Synchronize form when selected lead changes
   useEffect(() => {
     if (currentLead) {
       const draft = (currentLead.signalData as any)?.draftEmail;
       const dossier = (currentLead.signalData as any)?.dossier;
 
+      const cleanName = cleanCompanyName(currentLead.companyName);
+      const contactPerson = currentLead.contactName || dossier?.decisionMaker?.fullName || "";
+      const rawFirstName = contactPerson.split(/\s+/)[0] || "";
+      const firstName = rawFirstName ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1) : "";
+
       const initialSubject =
         draft?.subject ||
         dossier?.recommendedOutreach?.tailoredSubject ||
-        `Question regarding ${currentLead.companyName}'s cloud infrastructure`;
+        `Question regarding ${cleanName}'s cloud infrastructure`;
 
       const initialBody =
         draft?.body ||
         currentLead.notes ||
         dossier?.recommendedOutreach?.tailoredBody ||
-        `Hi there,\n\nI was reviewing ${currentLead.companyName}'s infrastructure and noticed your engineering team is actively scaling.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40%.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\n${currentUser?.name || "Deep Mehta"}\nAWS Certified Solutions Architect – Professional | Founder, 3 Dices`;
+        `Hi ${firstName || "there"},\n\nI was reviewing ${cleanName}'s infrastructure and noticed your engineering team is actively scaling.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40%.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\n${currentUser?.name || "Deep Mehta"}\nAWS Certified Solutions Architect – Professional | Founder, 3 Dices`;
 
+      const personalCandidate = currentLead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
       const initialEmail =
-        draft?.targetEmail ||
-        currentLead.emailCandidates[0] ||
-        dossier?.decisionMaker?.email ||
+        (draft?.targetEmail && !isGenericEmail(draft?.targetEmail) && isValidEmail(draft?.targetEmail) ? draft.targetEmail : "") ||
+        personalCandidate ||
+        (dossier?.decisionMaker?.email && !isGenericEmail(dossier.decisionMaker.email) ? dossier.decisionMaker.email : "") ||
         "";
 
       setSubject(initialSubject);
@@ -257,6 +327,18 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
 
         {/* Engine Runner & Navigation */}
         <div className="flex items-center gap-2">
+          {workerStatus?.isActive && (
+            <div className="hidden lg:flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-medium text-emerald-400">Autonomous Server Engine Active</span>
+              <span className="text-zinc-500">•</span>
+              <span className="text-zinc-400">Auto-enriching 24/7</span>
+            </div>
+          )}
+
           <button
             onClick={handleRunEngineBatch}
             disabled={processingBatch}
@@ -326,7 +408,7 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-lg font-bold text-white">{currentLead.companyName}</h3>
+                  <h3 className="text-lg font-bold text-white">{cleanCompanyName(currentLead.companyName)}</h3>
                   {currentLead.headline && (
                     <p className="text-xs text-zinc-400 mt-0.5 line-clamp-2">{currentLead.headline}</p>
                   )}
@@ -371,10 +453,22 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
                     Verified Contact
                   </span>
-                  <span className="flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-800/40">
-                    <ShieldCheck className="h-3 w-3" />
-                    SMTP Validated
-                  </span>
+                  {currentLead.verificationStatus === "socket_valid" ? (
+                    <span className="flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-800/40">
+                      <ShieldCheck className="h-3 w-3" />
+                      SMTP Validated
+                    </span>
+                  ) : currentLead.verificationStatus === "catch_all" ? (
+                    <span className="flex items-center gap-1 rounded bg-amber-950/60 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-800/40">
+                      <ShieldAlert className="h-3 w-3" />
+                      Catch-All Server
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400 border border-zinc-700">
+                      <Clock className="h-3 w-3" />
+                      Pending Verification
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2.5">
@@ -393,7 +487,7 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
 
                 <div className="flex items-center gap-2 text-xs text-zinc-300 bg-zinc-900/60 rounded px-2.5 py-1.5 font-mono">
                   <Mail className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                  <span className="truncate">{targetEmail || currentLead.emailCandidates[0] || "No email"}</span>
+                  <span className="truncate">{targetEmail || "No personal decision-maker email"}</span>
                 </div>
               </div>
 
@@ -436,7 +530,7 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                 <div>
                   <h3 className="text-sm font-semibold text-white">Review & Edit Outreach Email</h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Personalized draft generated for {currentLead.contactName || currentLead.companyName}.
+                    Personalized draft generated for {currentLead.contactName || cleanCompanyName(currentLead.companyName)}.
                   </p>
                 </div>
                 <button
@@ -462,9 +556,15 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-[11px] font-medium text-zinc-400">To Decision Maker</label>
-                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                      <ShieldCheck className="h-3 w-3" /> Direct Person
-                    </span>
+                    {!isGenericEmail(targetEmail) && isValidEmail(targetEmail) ? (
+                      <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                        <ShieldCheck className="h-3 w-3" /> Direct Person
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Shared / Generic Inbox
+                      </span>
+                    )}
                   </div>
                   <input
                     type="email"

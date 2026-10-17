@@ -87,7 +87,7 @@ export class LeadStore {
 
         this.leads.set(lead.id, {
           ...lead,
-          stage: score >= 70 ? "researched" : "sourced",
+          stage: "sourced",
           score,
           verificationStatus: "unverified"
         });

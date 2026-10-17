@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { ArconLogo } from "./components/ArconLogo";
 import { TeamManagementView } from "./components/TeamManagementView";
-import { SalesReviewView } from "./components/SalesReviewView";
+import { SalesReviewView, isLeadReadyForSalesReview, cleanCompanyName } from "./components/SalesReviewView";
 
 const TEAM_SENDERS = [
   { id: "deep", email: "deep@3dices.com", name: "Deep Mehta", role: "AWS Certified Solutions Architect – Professional | Founder" },
@@ -538,7 +538,7 @@ export default function ArconDashboard() {
   }, [filteredLeads, currentPage, pageSize]);
 
   const readyForReviewCount = useMemo(() => {
-    return leads.filter((l) => l.stage === "researched" || !!(l.signalData as any)?.draftEmail).length;
+    return leads.filter(isLeadReadyForSalesReview).length;
   }, [leads]);
 
   return (
@@ -770,7 +770,7 @@ export default function ArconDashboard() {
                     </div>
 
                     <h3 className="mt-1.5 text-sm font-semibold text-zinc-100 line-clamp-1 group-hover:text-white transition">
-                      {lead.companyName}
+                      {cleanCompanyName(lead.companyName)}
                     </h3>
                     <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5">
                       {lead.headline || "Technology Services"}
@@ -932,7 +932,7 @@ export default function ArconDashboard() {
                             }}
                             className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3 text-xs transition hover:border-zinc-600 cursor-pointer"
                           >
-                            <p className="font-semibold text-zinc-100 line-clamp-1">{lead.companyName}</p>
+                            <p className="font-semibold text-zinc-100 line-clamp-1">{cleanCompanyName(lead.companyName)}</p>
                             <p className="text-zinc-400 mt-0.5 line-clamp-1">
                               {lead.contactName || "Contact unknown"}
                             </p>
@@ -1135,7 +1135,7 @@ export default function ArconDashboard() {
                       </span>
                     )}
                   </div>
-                  <h2 className="text-lg font-bold text-white">{selectedLead.companyName}</h2>
+                  <h2 className="text-lg font-bold text-white">{cleanCompanyName(selectedLead.companyName)}</h2>
                   <p className="text-xs text-zinc-400 mt-0.5">{selectedLead.headline}</p>
                 </div>
 

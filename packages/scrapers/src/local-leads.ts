@@ -55,8 +55,25 @@ export function parseCsvRows(csvText: string): string[][] {
   return rows;
 }
 
+const INVALID_EMAIL_EXTENSIONS = /\.(jpe?g|png|webp|svg|gif|ico|bmp|tiff?|pdf|css|js)$/i;
+
 /**
- * Extracts all valid email addresses from text or comma-separated string.
+ * Cleans spammy SEO titles and keyword stuffing from company names.
+ * e.g. "Westferry Tech | Website Development Company | London UK" -> "Westferry Tech"
+ */
+export function cleanCompanyName(raw?: string): string {
+  if (!raw) return "Company";
+  let cleaned = raw.trim();
+  // Strip everything after SEO delimiter: | - – — • :
+  cleaned = cleaned.split(/\s*[-–—|•:]\s*/)[0].trim();
+  // Strip leading prefixes like "Welcome to"
+  cleaned = cleaned.replace(/^Welcome to\s+/i, "").trim();
+  return cleaned || raw.slice(0, 30).trim();
+}
+
+/**
+ * Extracts all valid email addresses from text or comma-separated string,
+ * strictly rejecting image filenames (e.g. @2x.jpg) and invalid extensions.
  */
 export function extractEmails(raw: string): string[] {
   if (!raw) return [];
@@ -64,7 +81,14 @@ export function extractEmails(raw: string): string[] {
   const preprocessed = raw.replace(/\.(com|org|net|io|co|in|uk|ai|tech|me|dev|app)([A-Z])/g, ".$1 $2");
   const matches = preprocessed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g);
   if (!matches) return [];
-  return Array.from(new Set(matches.map((e) => e.toLowerCase().trim())));
+  return Array.from(new Set(matches.map((e) => e.toLowerCase().trim()))).filter((email) => {
+    if (INVALID_EMAIL_EXTENSIONS.test(email)) return false;
+    const parts = email.split("@");
+    if (parts.length !== 2) return false;
+    const domainParts = parts[1].split(".");
+    const tld = domainParts[domainParts.length - 1];
+    return tld && tld.length >= 2 && /^[a-z]+$/.test(tld);
+  });
 }
 
 /**
@@ -95,13 +119,15 @@ export function importLeadsFromCsvContent(
     });
 
     // Detect field mappings
-    const companyName =
+    const rawCompanyName =
       rowObj["name"] ||
       rowObj["company"] ||
       rowObj["company name"] ||
       rowObj["title"] ||
       rowObj["website"]?.replace(/https?:\/\/(www\.)?/, "").split("/")[0] ||
       "Unknown Company";
+
+    const companyName = cleanCompanyName(rawCompanyName);
 
     if (!companyName || companyName === "Unknown Company") continue;
 
