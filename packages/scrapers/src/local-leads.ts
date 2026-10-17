@@ -68,14 +68,13 @@ export function extractEmails(raw: string): string[] {
 }
 
 /**
- * Imports leads from a local CSV file into standard RawLead objects.
+ * Imports leads from raw CSV text content into standard RawLead objects.
  */
-export function importLeadsFromCsv(filePath: string, options: CsvImportOptions = {}): RawLead[] {
-  if (!existsSync(filePath)) {
-    throw new Error(`CSV file not found at: ${filePath}`);
-  }
-
-  const content = readFileSync(filePath, "utf-8");
+export function importLeadsFromCsvContent(
+  content: string,
+  sourceName = "csv_upload",
+  options: CsvImportOptions = {}
+): RawLead[] {
   const rows = parseCsvRows(content);
 
   if (rows.length < 2) {
@@ -140,7 +139,7 @@ export function importLeadsFromCsv(filePath: string, options: CsvImportOptions =
 
     const rawAddress = rowObj["address"] || undefined;
     const city = rowObj["city"] || undefined;
-    const country = rowObj["country"] || (filePath.includes("uk-") ? "United Kingdom" : "United States");
+    const country = rowObj["country"] || (sourceName.includes("uk-") ? "United Kingdom" : "United States");
 
     leads.push({
       id: randomUUID(),
@@ -158,7 +157,7 @@ export function importLeadsFromCsv(filePath: string, options: CsvImportOptions =
       },
       socialUrls: linkedin ? { linkedin } : {},
       signalData: {
-        sourceFile: filePath,
+        sourceFile: sourceName,
         rating: rowObj["rating"],
         reviews: rowObj["reviews"],
         decisionMakerLinkedin: rowObj["decision_maker_linkedin"]
@@ -168,4 +167,16 @@ export function importLeadsFromCsv(filePath: string, options: CsvImportOptions =
   }
 
   return leads;
+}
+
+/**
+ * Imports leads from a local CSV file into standard RawLead objects.
+ */
+export function importLeadsFromCsv(filePath: string, options: CsvImportOptions = {}): RawLead[] {
+  if (!existsSync(filePath)) {
+    throw new Error(`CSV file not found at: ${filePath}`);
+  }
+
+  const content = readFileSync(filePath, "utf-8");
+  return importLeadsFromCsvContent(content, filePath, options);
 }

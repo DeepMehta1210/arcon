@@ -36,7 +36,8 @@ import {
   ShieldAlert,
   Zap,
   Building2,
-  Flame
+  Flame,
+  Upload
 } from "lucide-react";
 import { ArconLogo } from "./components/ArconLogo";
 import { TeamManagementView } from "./components/TeamManagementView";
@@ -123,6 +124,13 @@ export default function ArconDashboard() {
   const [creatorError, setCreatorError] = useState<string | null>(null);
   const [creatorSuccess, setCreatorSuccess] = useState<string | null>(null);
 
+  // Admin CSV Import modal state
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvSuccess, setCsvSuccess] = useState<string | null>(null);
+
   // Pagination for radar
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(30);
@@ -178,19 +186,41 @@ export default function ArconDashboard() {
     window.location.href = "/login";
   };
 
-  // Re-sync leads
-  const handleIngest = async () => {
+  // Admin CSV lead import handler
+  const handleCsvImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!csvFile) return;
+    setCsvLoading(true);
+    setCsvError(null);
+    setCsvSuccess(null);
     try {
-      setLoading(true);
-      const res = await fetch("/api/leads", { method: "POST" });
+      const text = await csvFile.text();
+      const res = await fetch("/api/leads/import-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          csvContent: text,
+          fileName: csvFile.name
+        })
+      });
       const data = await res.json();
       if (data.success) {
+        setCsvSuccess(
+          `Imported ${data.totalParsed} leads (${data.added} new added). Total leads: ${data.stats?.total || leads.length + data.added}`
+        );
         await fetchLeads();
+        setTimeout(() => {
+          setIsCsvModalOpen(false);
+          setCsvSuccess(null);
+          setCsvFile(null);
+        }, 1800);
+      } else {
+        setCsvError(data.error || "Failed to import CSV leads.");
       }
     } catch (err) {
-      console.error("Sync error:", err);
+      setCsvError((err as Error).message);
     } finally {
-      setLoading(false);
+      setCsvLoading(false);
     }
   };
 
@@ -585,14 +615,15 @@ export default function ArconDashboard() {
             Find creator
           </button>
 
-          <button
-            onClick={handleIngest}
-            disabled={loading}
-            className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-zinc-400" : ""}`} />
-            Sync folder
-          </button>
+          {currentUser?.role === "admin" && (
+            <button
+              onClick={() => setIsCsvModalOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition font-medium"
+            >
+              <Upload className="h-3.5 w-3.5 text-zinc-400" />
+              Import CSV
+            </button>
+          )}
 
           <span className="text-xs text-zinc-500">
             {leads.length} leads loaded
@@ -2001,6 +2032,149 @@ export default function ArconDashboard() {
                 >
                   {creatorLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
                   {creatorLoading ? "Discovering..." : "Scrape & Ingest"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN CSV IMPORT MODAL */}
+      {isCsvModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => {
+              if (!csvLoading) {
+                setIsCsvModalOpen(false);
+                setCsvError(null);
+              }
+            }}
+          />
+
+          <div className="relative w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-white">Import Leads from CSV</h3>
+                  <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+                    Admin
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Upload any contact or B2B list. Columns are auto-mapped and deduplicated.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  if (!csvLoading) {
+                    setIsCsvModalOpen(false);
+                    setCsvError(null);
+                  }
+                }}
+                disabled={csvLoading}
+                className="rounded-md p-1 text-zinc-400 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCsvImport} className="space-y-4">
+              {/* File Dropzone Area */}
+              <label
+                htmlFor="csv-file-input"
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition cursor-pointer ${
+                  csvFile
+                    ? "border-emerald-500/50 bg-emerald-950/10"
+                    : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/80"
+                }`}
+              >
+                <input
+                  id="csv-file-input"
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCsvFile(file);
+                      setCsvError(null);
+                    }
+                  }}
+                />
+
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 mb-3 shadow-inner">
+                  {csvFile ? (
+                    <FileText className="h-6 w-6 text-emerald-400" />
+                  ) : (
+                    <Upload className="h-6 w-6 text-zinc-400" />
+                  )}
+                </div>
+
+                {csvFile ? (
+                  <div className="text-center">
+                    <p className="text-sm font-medium text-white">{csvFile.name}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      {(csvFile.size / 1024).toFixed(1)} KB · Ready to import
+                    </p>
+                    <span className="inline-block mt-2 text-[11px] text-emerald-400 hover:underline">
+                      Click to choose a different file
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-xs font-medium text-zinc-200">
+                      Click to upload or drag & drop a CSV file
+                    </p>
+                    <p className="text-[11px] text-zinc-500 mt-1">
+                      Supports Clutch, Google Maps, Apollo, or custom CSV exports
+                    </p>
+                  </div>
+                )}
+              </label>
+
+              {/* Supported Columns Guide */}
+              <div className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3 text-[11px] text-zinc-400 space-y-1">
+                <span className="font-semibold text-zinc-300">Auto-detected Columns:</span>
+                <p>
+                  Company Name, Contact Name / Decision Maker, Email(s), Phone, Website, City, Country, LinkedIn, Category.
+                </p>
+              </div>
+
+              {csvError && (
+                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{csvError}</span>
+                </div>
+              )}
+
+              {csvSuccess && (
+                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>{csvSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCsvModalOpen(false);
+                    setCsvFile(null);
+                    setCsvError(null);
+                  }}
+                  disabled={csvLoading}
+                  className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={csvLoading || !csvFile}
+                  className="flex items-center gap-1.5 rounded-md bg-white px-4 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
+                >
+                  {csvLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
+                  {csvLoading ? "Processing & Ingesting..." : "Upload & Ingest Leads"}
                 </button>
               </div>
             </form>
