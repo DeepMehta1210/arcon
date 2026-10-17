@@ -1,5 +1,6 @@
 import { verifyEmail } from "@arcon/verifier";
 import { resolveMx, resolveTxt } from "node:dns/promises";
+import { isGenericEmail } from "./pipeline-engine";
 
 export interface CompanyIntel {
   name: string;
@@ -158,7 +159,7 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
       title: domain,
       description: "Cloud and technology startup",
       detectedTech: ["React", "TypeScript", "AWS"],
-      extractedEmails: [`contact@${domain}`],
+      extractedEmails: [],
       latencyMs,
       dmarcPolicy: dnsIntel.dmarcPolicy,
       mailProvider: dnsIntel.mailProvider,
@@ -227,7 +228,7 @@ export async function researchDecisionMaker(
   }
 
   // Graceful fallback for decision maker identity
-  if (!name || name.toLowerCase() === "alex rivera") {
+  if (!name || name.toLowerCase() === "unknown" || name.toLowerCase() === "n/a") {
     // Extract company name root from domain
     const rootName = cleanDomain.split(".")[0];
     const capitalized = rootName.charAt(0).toUpperCase() + rootName.slice(1);
@@ -241,28 +242,33 @@ export async function researchDecisionMaker(
 
   // 2. Generate B2B email permutations for this decision maker
   const nameParts = name.toLowerCase().split(/\s+/).filter(Boolean);
-  const firstName = nameParts[0] || "contact";
+  const firstName = nameParts[0] || "";
   const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  const rootDomainName = cleanDomain.split(".")[0].toLowerCase();
+
+  const isGenericLeadership =
+    lastName.toLowerCase() === "leadership" ||
+    firstName.toLowerCase() === "leadership" ||
+    firstName.toLowerCase() === rootDomainName;
 
   const candidateEmails: string[] = [];
-  if (firstName && lastName) {
-    candidateEmails.push(`${firstName}@${cleanDomain}`);
-    candidateEmails.push(`${firstName}.${lastName}@${cleanDomain}`);
-    candidateEmails.push(`${firstName[0]}${lastName}@${cleanDomain}`);
-    candidateEmails.push(`${firstName}_${lastName}@${cleanDomain}`);
-  } else {
-    candidateEmails.push(`${firstName}@${cleanDomain}`);
+  if (!isGenericLeadership) {
+    if (firstName && lastName) {
+      candidateEmails.push(`${firstName}@${cleanDomain}`);
+      candidateEmails.push(`${firstName}.${lastName}@${cleanDomain}`);
+      candidateEmails.push(`${firstName[0]}${lastName}@${cleanDomain}`);
+      candidateEmails.push(`${firstName}_${lastName}@${cleanDomain}`);
+    } else if (firstName && !isGenericEmail(`${firstName}@${cleanDomain}`)) {
+      candidateEmails.push(`${firstName}@${cleanDomain}`);
+    }
   }
 
-  // Add any valid scraped emails from the website
+  // Add only valid personal (non-generic) scraped emails from the website
   for (const email of scrapedEmails) {
-    if (email.endsWith(`@${cleanDomain}`) && !candidateEmails.includes(email)) {
+    if (email.endsWith(`@${cleanDomain}`) && !isGenericEmail(email) && !candidateEmails.includes(email)) {
       candidateEmails.push(email);
     }
   }
-  // Fallbacks
-  if (!candidateEmails.includes(`founders@${cleanDomain}`)) candidateEmails.push(`founders@${cleanDomain}`);
-  if (!candidateEmails.includes(`contact@${cleanDomain}`)) candidateEmails.push(`contact@${cleanDomain}`);
 
   // 3. Socket verification: probe candidate emails
   let selectedEmail = candidateEmails[0];

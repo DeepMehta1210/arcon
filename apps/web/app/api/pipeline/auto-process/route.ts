@@ -38,8 +38,12 @@ export async function POST(request: Request) {
           location: lead.location
         });
 
-        // If email is socket_valid, advance to 'researched' (Ready for Sales Review)
-        const isReadyForSales = enriched.verificationStatus === "socket_valid" || enriched.verificationStatus === "catch_all";
+        // Only advance to 'researched' (Ready for Sales Review) if a personal Decision Maker email is verified
+        const isReadyForSales =
+          (enriched.verificationStatus === "socket_valid" || enriched.verificationStatus === "catch_all") &&
+          enriched.isPersonalDecisionMaker &&
+          Boolean(enriched.targetEmail);
+
         const nextStage = isReadyForSales ? "researched" : "sourced";
 
         store.updateLead(lead.id, {

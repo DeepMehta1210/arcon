@@ -47,6 +47,20 @@ export interface StoredLead {
   signalData?: Record<string, unknown>;
 }
 
+const GENERIC_EMAIL_PREFIXES = new Set([
+  "sales", "info", "support", "contact", "hello", "help", "billing",
+  "careers", "jobs", "team", "office", "admin", "press", "media",
+  "enquiries", "inquiries", "mail", "general", "marketing", "hr",
+  "feedback", "customerservice", "legal", "compliance", "privacy",
+  "security", "devnull", "bounce"
+]);
+
+function isGenericEmail(email?: string): boolean {
+  if (!email || !email.includes("@")) return true;
+  const localPart = email.split("@")[0].toLowerCase().trim();
+  return GENERIC_EMAIL_PREFIXES.has(localPart);
+}
+
 interface SalesReviewViewProps {
   currentUser?: {
     id: string;
@@ -59,10 +73,13 @@ interface SalesReviewViewProps {
 }
 
 export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesReviewViewProps) {
-  // Filter leads ready for sales review (Stage 'researched' or with pre-generated draft)
+  // Filter leads ready for sales review: Must be personal decision maker (no generic sales@ or info@)
   const readyLeads = useMemo(() => {
     return leads.filter((l) => {
       if (l.stage === "contacted" || l.stage === "replied") return false;
+      const draftTarget = (l.signalData as any)?.draftEmail?.targetEmail;
+      const target = draftTarget || l.emailCandidates.find((e) => !isGenericEmail(e));
+      if (!target || isGenericEmail(target)) return false;
       const hasDraft = !!(l.signalData as any)?.draftEmail;
       return l.stage === "researched" || hasDraft;
     });
@@ -75,7 +92,7 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [targetEmail, setTargetEmail] = useState("");
-  const [senderEmail, setSenderEmail] = useState(currentUser?.email || "deep@3dices.com");
+  const [senderEmail, setSenderEmail] = useState("deep@3dices.com");
 
   // Status feedback
   const [sending, setSending] = useState(false);
@@ -436,21 +453,25 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
               {/* Sender & Target Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-zinc-400 mb-1">Send As</label>
-                  <input
-                    type="text"
-                    value={senderEmail}
-                    onChange={(e) => setSenderEmail(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white focus:border-zinc-700 focus:outline-none"
-                  />
+                  <label className="block text-[11px] font-medium text-zinc-400 mb-1">Send As (Founder)</label>
+                  <div className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-white">
+                    <User className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-medium truncate">Deep Mehta &lt;deep@3dices.com&gt;</span>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-zinc-400 mb-1">To Verified Recipient</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-medium text-zinc-400">To Decision Maker</label>
+                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <ShieldCheck className="h-3 w-3" /> Direct Person
+                    </span>
+                  </div>
                   <input
                     type="email"
                     value={targetEmail}
                     onChange={(e) => setTargetEmail(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white focus:border-zinc-700 focus:outline-none"
+                    placeholder="firstname@company.com"
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white focus:border-zinc-700 focus:outline-none font-mono"
                   />
                 </div>
               </div>
