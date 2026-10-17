@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { ArconLogo } from "./components/ArconLogo";
 import { TeamManagementView } from "./components/TeamManagementView";
+import { SalesReviewView } from "./components/SalesReviewView";
 
 const TEAM_SENDERS = [
   { id: "deep", email: "deep@3dices.com", name: "Deep Mehta", role: "AWS Certified Solutions Architect – Professional | Founder" },
@@ -90,7 +91,7 @@ const STAGES: Array<{ id: StoredLead["stage"]; label: string }> = [
 ];
 
 export default function ArconDashboard() {
-  const [activeTab, setActiveTab] = useState<"radar" | "pipeline" | "inbox" | "composer" | "team">("radar");
+  const [activeTab, setActiveTab] = useState<"radar" | "review" | "pipeline" | "inbox" | "composer" | "team">("radar");
   const [leads, setLeads] = useState<StoredLead[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -175,6 +176,9 @@ export default function ArconDashboard() {
           setCurrentUser(data.user);
           if (data.user.email) {
             setSelectedSenderEmail(data.user.email);
+          }
+          if (data.user.role === "sales") {
+            setActiveTab("review");
           }
         }
       })
@@ -533,6 +537,10 @@ export default function ArconDashboard() {
     return filteredLeads.slice(start, start + pageSize);
   }, [filteredLeads, currentPage, pageSize]);
 
+  const readyForReviewCount = useMemo(() => {
+    return leads.filter((l) => l.stage === "researched" || !!(l.signalData as any)?.draftEmail).length;
+  }, [leads]);
+
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100 font-sans relative">
       {/* Clean Minimal Header */}
@@ -551,6 +559,21 @@ export default function ArconDashboard() {
               }`}
             >
               Leads
+            </button>
+            <button
+              onClick={() => setActiveTab("review")}
+              className={`rounded-md px-3 py-1.5 transition flex items-center gap-1.5 ${
+                activeTab === "review"
+                  ? "bg-zinc-800 text-white"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              <span>Review & Send</span>
+              {readyForReviewCount > 0 && (
+                <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[10px] text-emerald-400 font-semibold border border-emerald-500/30">
+                  {readyForReviewCount}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab("pipeline")}
@@ -1067,6 +1090,15 @@ export default function ArconDashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* TAB 2: SALES REVIEW & OUTREACH QUEUE */}
+        {activeTab === "review" && (
+          <SalesReviewView
+            currentUser={currentUser}
+            leads={leads}
+            onLeadsUpdated={fetchLeads}
+          />
         )}
 
         {/* TAB 5: TEAM & RBAC MANAGEMENT */}
