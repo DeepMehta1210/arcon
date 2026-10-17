@@ -1,21 +1,30 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { verifySession, AUTH_COOKIE_NAME, TEAM_USERS } from "../../../../lib/auth";
+import { verifySession, AUTH_COOKIE_NAME } from "../../../../lib/auth";
+import { UserStore } from "@arcon/database";
 
 export async function GET(request: Request) {
   try {
-    // 1. Check for Cloudflare Zero Trust header
+    const store = UserStore.getInstance();
+
+    // 1. Check for Cloudflare Zero Trust header (if ever enabled)
     const cfEmail = request.headers.get("cf-access-authenticated-user-email");
     if (cfEmail) {
-      const matched = TEAM_USERS.find(
-        (u) => u.email.toLowerCase() === cfEmail.trim().toLowerCase()
-      ) || {
-        id: `user-${Date.now()}`,
-        email: cfEmail.trim().toLowerCase(),
-        name: cfEmail.split("@")[0],
-        role: "admin" as const,
-      };
-      return NextResponse.json({ authenticated: true, user: matched });
+      const dbUser = store.getUserByEmail(cfEmail);
+      const user = dbUser
+        ? {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.fullName,
+            role: dbUser.role,
+          }
+        : {
+            id: `user-${Date.now()}`,
+            email: cfEmail.trim().toLowerCase(),
+            name: cfEmail.split("@")[0],
+            role: "admin" as const,
+          };
+      return NextResponse.json({ authenticated: true, user });
     }
 
     const cookieStore = await cookies();
@@ -28,6 +37,23 @@ export async function GET(request: Request) {
     const session = await verifySession(token);
     if (!session) {
       return NextResponse.json({ authenticated: false, user: null });
+    }
+
+    // Refresh role and status from database if user exists
+    const dbUser = store.getUserById(session.id) || store.getUserByEmail(session.email);
+    if (dbUser) {
+      if (dbUser.status !== "active") {
+        return NextResponse.json({ authenticated: false, user: null, error: "Account suspended" });
+      }
+      return NextResponse.json({
+        authenticated: true,
+        user: {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.fullName,
+          role: dbUser.role,
+        },
+      });
     }
 
     return NextResponse.json({ authenticated: true, user: session });

@@ -39,6 +39,7 @@ import {
   Flame
 } from "lucide-react";
 import { ArconLogo } from "./components/ArconLogo";
+import { TeamManagementView } from "./components/TeamManagementView";
 
 const TEAM_SENDERS = [
   { id: "deep", email: "deep@3dices.com", name: "Deep Mehta", role: "AWS Certified Solutions Architect – Professional | Founder" },
@@ -88,7 +89,7 @@ const STAGES: Array<{ id: StoredLead["stage"]; label: string }> = [
 ];
 
 export default function ArconDashboard() {
-  const [activeTab, setActiveTab] = useState<"radar" | "pipeline" | "inbox" | "composer">("radar");
+  const [activeTab, setActiveTab] = useState<"radar" | "pipeline" | "inbox" | "composer" | "team">("radar");
   const [leads, setLeads] = useState<StoredLead[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -551,6 +552,18 @@ export default function ArconDashboard() {
             >
               Composer
             </button>
+            {currentUser?.role === "admin" && (
+              <button
+                onClick={() => setActiveTab("team")}
+                className={`rounded-md px-3 py-1.5 transition ${
+                  activeTab === "team"
+                    ? "bg-zinc-800 text-white"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Team
+              </button>
+            )}
           </nav>
         </div>
 
@@ -1023,6 +1036,11 @@ export default function ArconDashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* TAB 5: TEAM & RBAC MANAGEMENT */}
+        {activeTab === "team" && (
+          <TeamManagementView currentUser={currentUser} />
         )}
       </main>
 

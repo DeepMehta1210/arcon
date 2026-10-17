@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { signSession, getAdminPassword, TEAM_USERS, AUTH_COOKIE_NAME } from "../../../../lib/auth";
+import { signSession, AUTH_COOKIE_NAME } from "../../../../lib/auth";
+import { UserStore } from "@arcon/database";
 
 export async function POST(request: Request) {
   try {
@@ -13,29 +14,28 @@ export async function POST(request: Request) {
       );
     }
 
-    const expectedPassword = getAdminPassword();
-    if (password !== expectedPassword) {
+    const store = UserStore.getInstance();
+    const verifiedUser = store.verifyCredentials(email, password);
+
+    if (!verifiedUser) {
       return NextResponse.json(
-        { success: false, error: "Incorrect password" },
+        { success: false, error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
-    // Match team user or fallback to standard user
-    const matchedUser = TEAM_USERS.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase()
-    ) || {
-      id: `user-${Date.now()}`,
-      email: email.trim().toLowerCase(),
-      name: email.split("@")[0],
-      role: "admin" as const,
+    const sessionPayload = {
+      id: verifiedUser.id,
+      email: verifiedUser.email,
+      name: verifiedUser.fullName,
+      role: verifiedUser.role,
     };
 
-    const token = await signSession(matchedUser);
+    const token = await signSession(sessionPayload);
 
     const response = NextResponse.json({
       success: true,
-      user: matchedUser,
+      user: sessionPayload,
     });
 
     response.cookies.set({

@@ -1,8 +1,10 @@
+export type UserRole = "admin" | "sales" | "viewer";
+
 export interface UserSession {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "sales";
+  role: UserRole;
   exp: number; // Unix timestamp in ms
 }
 
