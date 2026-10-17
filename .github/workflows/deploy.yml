@@ -94,7 +94,9 @@ jobs:
             --comment "Automated CI/CD deployment from GitHub Actions commit ${{ github.sha }}" \
             --parameters 'commands=[
               "set -ex",
-              "git config --global --add safe.directory /opt/arcon || true",
+              "export HOME=/root",
+              "chown -R root:root /opt/arcon || true",
+              "git config --system --add safe.directory /opt/arcon || true",
               "cd /opt/arcon",
               "git fetch origin",
               "git checkout '${{ github.ref_name }}'",
