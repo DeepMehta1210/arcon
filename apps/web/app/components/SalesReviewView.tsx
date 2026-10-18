@@ -54,18 +54,60 @@ export const GENERIC_EMAIL_PREFIXES = new Set([
   "enquiries", "inquiries", "mail", "general", "marketing", "hr",
   "feedback", "customerservice", "legal", "compliance", "privacy",
   "security", "devnull", "bounce", "postmaster", "hostmaster", "webmaster",
-  "hi", "inquire"
+  "hi", "inquire", "business", "partners", "vendors", "investors", "corporate",
+  "accounts", "finance", "client", "clients", "leads", "partnership", "partnerships",
+  "services", "service", "consulting", "inquiry", "recruit", "recruiting", "recruitment",
+  "career", "editorial", "news", "customercare", "operations", "dev", "development",
+  "agency", "booking", "bookings", "frontdesk", "reception", "uk", "us", "london", "india",
+  "united", "choosing", "connect", "reachus", "getintouch"
 ]);
 
 const INVALID_EMAIL_EXTENSIONS = /\.(jpe?g|png|webp|svg|gif|ico|bmp|tiff?|pdf|css|js)$/i;
 
+export const INVALID_NAME_WORDS = new Set([
+  "company", "solutions", "technologies", "technology", "services", "service",
+  "development", "developer", "design", "designers", "agency", "consulting",
+  "limited", "ltd", "llc", "inc", "corp", "corporation", "team", "studio",
+  "partners", "group", "systems", "media", "digital", "software", "web", "labs",
+  "choosing", "about", "contact", "welcome", "portfolio", "careers", "home",
+  "help", "united", "kingdom", "uk", "london", "usa", "america", "india",
+  "canada", "australia", "germany", "france", "europe", "asia", "global",
+  "international", "office", "headquarters", "dept", "department", "support",
+  "sales", "business", "enterprise", "cloud", "security", "network", "no",
+  "none", "case", "studies", "praise", "street", "road", "suite", "avenue",
+  "review", "reviews", "display", "mobile", "racing", "game", "infotech", "tech"
+]);
+
+export function isLikelyPersonName(name?: string): boolean {
+  if (!name || typeof name !== "string") return false;
+  const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 3) return false;
+  for (const w of words) {
+    if (INVALID_NAME_WORDS.has(w)) return false;
+    if (!/^[a-z]+(?:['\-][a-z]+)?$/i.test(w)) return false;
+  }
+  return true;
+}
+
+export function sanitizeEmail(email?: string): string {
+  if (!email || typeof email !== "string") return "";
+  let clean = email.trim();
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {}
+  clean = clean.toLowerCase();
+  clean = clean.replace(/^(%20|\u003e|<|>|'|"|\s|&gt;|&lt;)+/g, "");
+  clean = clean.replace(/(%20|\u003e|<|>|'|"|\s|&gt;|&lt;)+$/g, "");
+  return clean.trim();
+}
+
 export function isValidEmail(email?: string): boolean {
-  if (!email || typeof email !== "string") return false;
-  const trimmed = email.trim().toLowerCase();
-  if (INVALID_EMAIL_EXTENSIONS.test(trimmed)) return false;
+  const clean = sanitizeEmail(email);
+  if (!clean) return false;
+  if (INVALID_EMAIL_EXTENSIONS.test(clean)) return false;
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-  if (!emailRegex.test(trimmed)) return false;
-  const parts = trimmed.split("@");
+  if (!emailRegex.test(clean)) return false;
+  const parts = clean.split("@");
   if (parts.length !== 2) return false;
   const domainParts = parts[1].split(".");
   const tld = domainParts[domainParts.length - 1];
@@ -74,9 +116,16 @@ export function isValidEmail(email?: string): boolean {
 }
 
 export function isGenericEmail(email?: string): boolean {
-  if (!email || !isValidEmail(email)) return true;
-  const localPart = email.split("@")[0].toLowerCase().trim();
-  return GENERIC_EMAIL_PREFIXES.has(localPart);
+  const clean = sanitizeEmail(email);
+  if (!clean || !isValidEmail(clean)) return true;
+  const localPart = clean.split("@")[0].toLowerCase().trim();
+  if (GENERIC_EMAIL_PREFIXES.has(localPart)) return true;
+
+  const subparts = localPart.split(/[._\-+]/);
+  for (const part of subparts) {
+    if (GENERIC_EMAIL_PREFIXES.has(part)) return true;
+  }
+  return false;
 }
 
 export function cleanCompanyName(raw?: string): string {
@@ -89,22 +138,22 @@ export function cleanCompanyName(raw?: string): string {
 
 /**
  * Single source of truth for leads qualified for the Sales Review command center.
- * Must strictly require a personal, non-generic decision maker email.
+ * Must strictly require a verified personal decision maker with real human name and non-generic email.
  */
 export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
-  if (lead.stage === "contacted" || lead.stage === "replied") return false;
+  if (lead.stage !== "researched") return false;
+  if (!lead.contactName || !isLikelyPersonName(lead.contactName)) return false;
 
-  // Must have a personal target email
+  const isSocketOk = lead.verificationStatus === "socket_valid" || lead.verificationStatus === "catch_all";
+  if (!isSocketOk) return false;
+
   const draftTarget = (lead.signalData as any)?.draftEmail?.targetEmail;
   const target = draftTarget || lead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
 
   if (!target || isGenericEmail(target) || !isValidEmail(target)) return false;
 
-  // Must have a generated draft or be marked researched with socket validation
-  const hasDraft = Boolean((lead.signalData as any)?.draftEmail?.body);
-  const isSocketOk = lead.verificationStatus === "socket_valid" || lead.verificationStatus === "catch_all";
-
-  return (lead.stage === "researched" && isSocketOk) || hasDraft;
+  const hasDraft = Boolean((lead.signalData as any)?.draftEmail?.body || lead.notes);
+  return hasDraft;
 }
 
 interface SalesReviewViewProps {

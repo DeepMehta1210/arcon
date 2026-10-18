@@ -13,13 +13,15 @@ export interface StoredLead extends RawLead {
 function getDataDir(): string {
   const candidates = [
     join(process.cwd(), "packages/database/data"),
+    join(process.cwd(), "../packages/database/data"),
     join(process.cwd(), "../../packages/database/data"),
+    "/app/packages/database/data",
     "C:/Users/DeepMehta/Organiz/Codes/arcon/packages/database/data"
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
   }
-  return "C:/Users/DeepMehta/Organiz/Codes/arcon/packages/database/data";
+  return join(process.cwd(), "packages/database/data");
 }
 
 const DATA_DIR = getDataDir();
@@ -37,7 +39,14 @@ export class LeadStore {
     if (!LeadStore.instance) {
       LeadStore.instance = new LeadStore();
     }
+    if (LeadStore.instance.leads.size === 0) {
+      LeadStore.instance.loadFromDisk();
+    }
     return LeadStore.instance;
+  }
+
+  public reloadFromDisk(): void {
+    this.loadFromDisk();
   }
 
   private loadFromDisk(): void {

@@ -44,6 +44,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ArconAdmin2026!}
       ZOHO_USER: ${ZOHO_USER:-deep@3dices.com}
       ZOHO_PASSWORD: ${ZOHO_PASSWORD}
+    volumes:
+      - ./packages/database/data:/app/packages/database/data
     depends_on:
       postgres:
         condition: service_healthy

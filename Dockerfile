@@ -22,4 +22,4 @@ COPY --from=builder /app ./
 
 EXPOSE 3030
 
-CMD ["bun", "run", "--cwd", "apps/web", "start"]
+CMD ["sh", "-c", "bun run apps/web/scripts/worker-daemon.ts & bun run --cwd apps/web start"]

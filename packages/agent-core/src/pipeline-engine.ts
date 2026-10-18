@@ -8,21 +8,70 @@ export const GENERIC_EMAIL_PREFIXES = new Set([
   "enquiries", "inquiries", "mail", "general", "marketing", "hr",
   "feedback", "customerservice", "legal", "compliance", "privacy",
   "security", "devnull", "bounce", "postmaster", "hostmaster", "webmaster",
-  "hi", "inquire"
+  "hi", "inquire", "business", "partners", "vendors", "investors", "corporate",
+  "accounts", "finance", "client", "clients", "leads", "partnership", "partnerships",
+  "services", "service", "consulting", "inquiry", "recruit", "recruiting", "recruitment",
+  "career", "editorial", "news", "customercare", "operations", "dev", "development",
+  "agency", "booking", "bookings", "frontdesk", "reception", "uk", "us", "london", "india",
+  "united", "choosing", "connect", "reachus", "getintouch"
 ]);
 
 const INVALID_EMAIL_EXTENSIONS = /\.(jpe?g|png|webp|svg|gif|ico|bmp|tiff?|pdf|css|js)$/i;
+
+export const INVALID_NAME_WORDS = new Set([
+  "company", "solutions", "technologies", "technology", "services", "service",
+  "development", "developer", "design", "designers", "agency", "consulting",
+  "limited", "ltd", "llc", "inc", "corp", "corporation", "team", "studio",
+  "partners", "group", "systems", "media", "digital", "software", "web", "labs",
+  "choosing", "about", "contact", "welcome", "portfolio", "careers", "home",
+  "help", "united", "kingdom", "uk", "london", "usa", "america", "india",
+  "canada", "australia", "germany", "france", "europe", "asia", "global",
+  "international", "office", "headquarters", "dept", "department", "support",
+  "sales", "business", "enterprise", "cloud", "security", "network", "no",
+  "none", "case", "studies", "praise", "street", "road", "suite", "avenue",
+  "review", "reviews", "display", "mobile", "racing", "game", "infotech", "tech"
+]);
+
+/**
+ * Validates whether a given string is a plausible real human personal name (e.g. "Pavel Shevtsov", "Marcus Gitau")
+ * rather than a company title, country name, or web page excerpt.
+ */
+export function isLikelyPersonName(name?: string): boolean {
+  if (!name || typeof name !== "string") return false;
+  const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 3) return false;
+  for (const w of words) {
+    if (INVALID_NAME_WORDS.has(w)) return false;
+    if (!/^[a-z]+(?:['\-][a-z]+)?$/i.test(w)) return false;
+  }
+  return true;
+}
+
+/**
+ * Cleans encoded URL parameters (%20, <>, etc.) and trims whitespace.
+ */
+export function sanitizeEmail(email?: string): string {
+  if (!email || typeof email !== "string") return "";
+  let clean = email.trim();
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {}
+  clean = clean.toLowerCase();
+  clean = clean.replace(/^(%20|\u003e|<|>|'|"|\s|&gt;|&lt;)+/g, "");
+  clean = clean.replace(/(%20|\u003e|<|>|'|"|\s|&gt;|&lt;)+$/g, "");
+  return clean.trim();
+}
 
 /**
  * Validates that an email conforms to strict RFC syntax and is NOT an image asset or invalid file.
  */
 export function isValidEmail(email?: string): boolean {
-  if (!email || typeof email !== "string") return false;
-  const trimmed = email.trim().toLowerCase();
-  if (INVALID_EMAIL_EXTENSIONS.test(trimmed)) return false;
+  const clean = sanitizeEmail(email);
+  if (!clean) return false;
+  if (INVALID_EMAIL_EXTENSIONS.test(clean)) return false;
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-  if (!emailRegex.test(trimmed)) return false;
-  const parts = trimmed.split("@");
+  if (!emailRegex.test(clean)) return false;
+  const parts = clean.split("@");
   if (parts.length !== 2) return false;
   const domainParts = parts[1].split(".");
   const tld = domainParts[domainParts.length - 1];
@@ -31,13 +80,21 @@ export function isValidEmail(email?: string): boolean {
 }
 
 /**
- * Checks whether an email address is a shared/generic company inbox (e.g. sales@, info@)
+ * Checks whether an email address is a shared/generic company inbox (e.g. sales@, info@, vendors.partnership@)
  * rather than a direct personal email of a Founder/Executive.
  */
 export function isGenericEmail(email?: string): boolean {
-  if (!email || !isValidEmail(email)) return true;
-  const localPart = email.split("@")[0].toLowerCase().trim();
-  return GENERIC_EMAIL_PREFIXES.has(localPart);
+  const clean = sanitizeEmail(email);
+  if (!clean || !isValidEmail(clean)) return true;
+  const localPart = clean.split("@")[0].toLowerCase().trim();
+  if (GENERIC_EMAIL_PREFIXES.has(localPart)) return true;
+
+  // Split compound parts (e.g. vendors.partnership, sales-team, info_uk)
+  const subparts = localPart.split(/[._\-+]/);
+  for (const part of subparts) {
+    if (GENERIC_EMAIL_PREFIXES.has(part)) return true;
+  }
+  return false;
 }
 
 /**
@@ -119,7 +176,9 @@ export async function enrichAndPersonalizeLead(
     observedSignal: lead.headline
   });
 
-  const discoveredPersonName = dossier.decisionMaker.fullName || lead.contactName;
+  const rawPersonName = dossier.decisionMaker.fullName || lead.contactName;
+  const isPerson = isLikelyPersonName(rawPersonName);
+  const discoveredPersonName = isPerson ? rawPersonName : undefined;
 
   // 2. Select ONLY personal candidate emails (strictly excluding sales@, info@, support@, etc.)
   const personalCandidates = lead.emailCandidates.filter((e) => !isGenericEmail(e) && isValidEmail(e));
@@ -164,8 +223,8 @@ export async function enrichAndPersonalizeLead(
     }
   }
 
-  // If NO personal decision maker email exists, do NOT fall back to sales@ or generic inboxes!
-  const isPersonalDecisionMaker = Boolean(finalTargetEmail && !isGenericEmail(finalTargetEmail));
+  // If NO personal decision maker email exists or no genuine human contact, do NOT qualify for Sales Review!
+  const isPersonalDecisionMaker = Boolean(finalTargetEmail && !isGenericEmail(finalTargetEmail) && isPerson);
 
   if (!isPersonalDecisionMaker) {
     isVerified = false;

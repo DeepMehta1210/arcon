@@ -38,13 +38,15 @@ export function verifyPassword(password: string, combinedHash: string): boolean 
 function getDataDir(): string {
   const candidates = [
     join(process.cwd(), "packages/database/data"),
+    join(process.cwd(), "../packages/database/data"),
     join(process.cwd(), "../../packages/database/data"),
+    "/app/packages/database/data",
     "C:/Users/DeepMehta/Organiz/Codes/arcon/packages/database/data"
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
   }
-  return "C:/Users/DeepMehta/Organiz/Codes/arcon/packages/database/data";
+  return join(process.cwd(), "packages/database/data");
 }
 
 const DATA_DIR = getDataDir();

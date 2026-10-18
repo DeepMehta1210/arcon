@@ -26,11 +26,11 @@
       "reviews": "1",
       "decisionMakerLinkedin": "",
       "dossier": {
-        "prospectId": "fef9e353-47f5-40c7-80af-fa69c70ea5ab",
-        "researchedAt": "2026-10-16T17:14:24.703Z",
-        "researchDurationMs": 5085,
+        "prospectId": "5820bf43-8cc2-4063-8d90-296d178dddab",
+        "researchedAt": "2026-10-18T06:18:17.485Z",
+        "researchDurationMs": 4593,
         "company": {
-          "name": "Esferasoft Solutions UK - Mobile App & Software Development Company",
+          "name": "Esferasoft Solutions UK",
           "domain": "esferasoft.co.uk",
           "description": "Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth. Talk to us today.",
           "stage": "seed",
@@ -45,7 +45,7 @@
           "recentEvents": [
             {
               "type": "product_launch",
-              "date": "2026-10-16",
+              "date": "2026-10-18",
               "summary": "Software company",
               "sourceUrl": "https://esferasoft.co.uk"
             }
@@ -76,12 +76,12 @@
         "recommendedOutreach": {
           "selectedPlay": "Tailored Executive B2B Outreach",
           "targetChannel": "email",
-          "tailoredSubject": "Ria - question about Esferasoft Solutions UK's server response times",
-          "tailoredBody": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your homepage server response latency is sitting around 856ms, which could create user drop-offs during traffic surges.\n\nAt 3 Dices, we partner with growing engineering teams to streamline cloud deployments, cut server latency, and build resilient infrastructure without the overhead of hiring an entire in-house DevOps department.\n\nWould you be open to a quick 10-minute introductory call this Thursday to see if we might be a fit, or would it be helpful if I shared a brief diagnostic teardown of what we found?\n\nBest regards,\nDeep Mehta\nFounder & Cloud Architect | 3 Dices",
+          "tailoredSubject": "Ria - question about Esferasoft Solutions UK's server response latency",
+          "tailoredBody": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your initial server response time is sitting around 1185ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for Esferasoft Solutions UK?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
           "lintReport": {
             "zeroWidthStripped": 0,
-            "slopScore": 0.0074,
-            "burstinessScore": 0.357,
+            "slopScore": 0,
+            "burstinessScore": 0.358,
             "ste100Compliant": true,
             "passed": true
           }
@@ -118,13 +118,20 @@
           "ste100Compliant": true,
           "passed": true
         }
+      },
+      "draftEmail": {
+        "subject": "Ria - question about Esferasoft Solutions UK's server response latency",
+        "body": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your initial server response time is sitting around 1185ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for Esferasoft Solutions UK?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+        "angle": "Tailored Executive B2B Outreach",
+        "targetEmail": "ria@esferasoft.co.uk",
+        "generatedAt": "2026-10-18T06:18:19.479Z"
       }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
-    "stage": "sourced",
+    "stage": "researched",
     "score": 82,
-    "verificationStatus": "socket_invalid",
-    "notes": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your homepage server response latency is sitting around 856ms, which could create user drop-offs during traffic surges.\n\nAt 3 Dices, we partner with growing engineering teams to streamline cloud deployments, cut server latency, and build resilient infrastructure without the overhead of hiring an entire in-house DevOps department.\n\nWould you be open to a quick 10-minute introductory call this Thursday to see if we might be a fit, or would it be helpful if I shared a brief diagnostic teardown of what we found?\n\nBest regards,\nDeep Mehta\nFounder & Cloud Architect | 3 Dices",
+    "verificationStatus": "socket_valid",
+    "notes": "Hi Ria,\n\nWhile reviewing Esferasoft Solutions UK, I was really impressed by your work in Esferasoft Solutions helps UK businesses with digital transformation, software development and reliable technology solutions designed to support business growth.\n\nI ran a performance check on esferasoft.co.uk and noticed your initial server response time is sitting around 1185ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for Esferasoft Solutions UK?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
     "contactName": "Ria Rader"
   },
   {
@@ -150,12 +157,75 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "4.800000",
       "reviews": "18",
-      "decisionMakerLinkedin": ""
+      "decisionMakerLinkedin": "",
+      "dossier": {
+        "prospectId": "d444a4c3-88d0-4484-9baa-97eb02e2bcef",
+        "researchedAt": "2026-10-18T06:18:24.314Z",
+        "researchDurationMs": 4820,
+        "company": {
+          "name": "Krify",
+          "domain": "krify.co.uk",
+          "description": "Bespoke App, Web and AI Development Company in UK​ — Krify is a UK-based Bespoke App Development Company in UK delivering tailored mobile, web, and AI solutions for startups and enterprises.",
+          "stage": "seed",
+          "techStack": [
+            "React",
+            "Python",
+            "Go",
+            "AWS",
+            "Node.js",
+            "FastAPI"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://krify.co.uk"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "United Kingdom",
+          "role": "Founder & Chief Technology Officer",
+          "email": "united@krify.co.uk",
+          "emailVerification": {
+            "status": "catch_all",
+            "method": "direct_smtp_socket",
+            "mxHost": "aspmx.l.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=United%20Kingdom%20krify.co.uk",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at krify.co.uk. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "United - private AI & agent architecture for Krify",
+          "tailoredBody": "Hi United,\n\nWhile reviewing Krify, I was really impressed by your work in Bespoke App, Web and AI Development Company in UK​ — Krify is a UK-based Bespoke App Development Company in UK delivering tailored mobile, web, and AI solutions for startups and enterprises.\n\nI noticed Krify is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 1,
+            "slopScore": 0,
+            "burstinessScore": 0.432,
+            "ste100Compliant": false,
+            "passed": false
+          }
+        }
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
     "stage": "sourced",
-    "score": 100,
-    "verificationStatus": "unverified"
+    "score": 82,
+    "verificationStatus": "socket_invalid",
+    "notes": "Hi United,\n\nWhile reviewing Krify, I was really impressed by your work in Bespoke App, Web and AI Development Company in UK​ — Krify is a UK-based Bespoke App Development Company in UK delivering tailored mobile, web, and AI solutions for startups and enterprises.\n\nI noticed Krify is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "c052020c-8b1e-4333-808b-6bc240e41083",
@@ -180,12 +250,86 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "4.700000",
       "reviews": "23",
-      "decisionMakerLinkedin": "https://www.linkedin.com/in/pavel-shevtsov-a4650b38/; https://www.linkedin.com/in/alexey-galaktionov-12ba0a84/; https://www.linkedin.com/in/alexander-bessudnov-60b656275/"
+      "decisionMakerLinkedin": "https://www.linkedin.com/in/pavel-shevtsov-a4650b38/; https://www.linkedin.com/in/alexey-galaktionov-12ba0a84/; https://www.linkedin.com/in/alexander-bessudnov-60b656275/",
+      "dossier": {
+        "prospectId": "6a6948d4-8e6a-49a6-84b5-1a38e75c43fd",
+        "researchedAt": "2026-10-18T06:18:29.085Z",
+        "researchDurationMs": 2914,
+        "company": {
+          "name": "Magora",
+          "domain": "magora-systems.com",
+          "description": "Software development company in London — London software company since 2010: custom apps, web platforms and AI for UK businesses. 250+ projects, NDA from day one, MVP from £10K. Free estimate.",
+          "stage": "seed",
+          "techStack": [
+            "React",
+            "Next.js",
+            "Vue",
+            "Python",
+            "Go",
+            "AWS",
+            "Node.js",
+            "GraphQL",
+            "OpenAI",
+            "Anthropic"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://magora-systems.com"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Pavel Shevtsov",
+          "role": "Founder & Chief Technology Officer",
+          "email": "pavel@magora-systems.com",
+          "emailVerification": {
+            "status": "catch_all",
+            "method": "direct_smtp_socket",
+            "mxHost": "aspmx.l.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Pavel%20Shevtsov%20magora-systems.com",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at magora-systems.com. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Pavel - private AI & agent architecture for Magora",
+          "tailoredBody": "Hi Pavel,\n\nWhile reviewing Magora, I was really impressed by your work in Software development company in London — London software company since 2010: custom apps, web platforms and AI for UK businesses.\n\nI noticed Magora is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0,
+            "burstinessScore": 0.374,
+            "ste100Compliant": true,
+            "passed": true
+          }
+        }
+      },
+      "draftEmail": {
+        "subject": "Pavel - private AI & agent architecture for Magora",
+        "body": "Hi Pavel,\n\nWhile reviewing Magora, I was really impressed by your work in Software development company in London — London software company since 2010: custom apps, web platforms and AI for UK businesses.\n\nI noticed Magora is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+        "angle": "Tailored Executive B2B Outreach",
+        "targetEmail": "pavel@magora-systems.com",
+        "generatedAt": "2026-10-18T06:18:30.590Z"
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
-    "stage": "sourced",
-    "score": 100,
-    "verificationStatus": "unverified"
+    "stage": "researched",
+    "score": 82,
+    "verificationStatus": "socket_valid",
+    "notes": "Hi Pavel,\n\nWhile reviewing Magora, I was really impressed by your work in Software development company in London — London software company since 2010: custom apps, web platforms and AI for UK businesses.\n\nI noticed Magora is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "9802b032-751b-400a-9089-4173695d16de",
@@ -238,12 +382,68 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "5.000000",
       "reviews": "24",
-      "decisionMakerLinkedin": ""
+      "decisionMakerLinkedin": "",
+      "dossier": {
+        "prospectId": "eeb1cb9f-5fb0-4ab4-8895-9272cdcd2282",
+        "researchedAt": "2026-10-18T06:18:34.952Z",
+        "researchDurationMs": 4353,
+        "company": {
+          "name": "Limeup",
+          "domain": "limeup.io",
+          "description": "We are an application &amp; software development company helping B2B and enterprise clients build high-quality digital products, enabling scalable growth.",
+          "stage": "seed",
+          "techStack": [],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://limeup.io"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Choosing Limeup",
+          "role": "Founder & Chief Technology Officer",
+          "email": "choosing@limeup.io",
+          "emailVerification": {
+            "status": "catch_all",
+            "method": "direct_smtp_socket",
+            "mxHost": "aspmx.l.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Choosing%20Limeup%20limeup.io",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at limeup.io. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Choosing - question about Limeup's server response latency",
+          "tailoredBody": "Hi Choosing,\n\nWhile reviewing Limeup, I was really impressed by your work in We are an application &amp; software development company helping B2B and enterprise clients build high-quality digital products, enabling scalable growth.\n\nI ran a performance check on limeup.io and noticed your initial server response time is sitting around 2038ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for Limeup?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0,
+            "burstinessScore": 0.349,
+            "ste100Compliant": true,
+            "passed": true
+          }
+        }
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
     "stage": "sourced",
-    "score": 100,
-    "verificationStatus": "unverified"
+    "score": 82,
+    "verificationStatus": "socket_invalid",
+    "notes": "Hi Choosing,\n\nWhile reviewing Limeup, I was really impressed by your work in We are an application &amp; software development company helping B2B and enterprise clients build high-quality digital products, enabling scalable growth.\n\nI ran a performance check on limeup.io and noticed your initial server response time is sitting around 2038ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for Limeup?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "20d14561-c1bc-4f5d-b501-af0e8be7df65",
@@ -267,12 +467,71 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "5.000000",
       "reviews": "7",
-      "decisionMakerLinkedin": ""
+      "decisionMakerLinkedin": "",
+      "dossier": {
+        "prospectId": "359c45b4-ecbd-4254-b7f3-8e42f856724f",
+        "researchedAt": "2026-10-18T06:18:39.041Z",
+        "researchDurationMs": 2508,
+        "company": {
+          "name": "Turn Up Technologies London",
+          "domain": "turnuptechnologies.co",
+          "description": "Building Digital Products That Scale and Perform — Turn Up Technologies provides complete Web, App Development, Paid Ads, SEO, &amp; Marketing solutions to strengthen your business presence.",
+          "stage": "seed",
+          "techStack": [
+            "Go"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://turnuptechnologies.co"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Ria Street",
+          "role": "Founder & Chief Technology Officer",
+          "email": "ria@turnuptechnologies.co",
+          "emailVerification": {
+            "status": "catch_all",
+            "method": "direct_smtp_socket",
+            "mxHost": "smtp.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Ria%20Street%20turnuptechnologies.co",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at turnuptechnologies.co. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Ria - quick note regarding turnuptechnologies.co's email security setup",
+          "tailoredBody": "Hi Ria,\n\nWhile reviewing Turn Up Technologies London, I was really impressed by your work in Building Digital Products That Scale and Perform — Turn Up Technologies provides complete Web, App Development, Paid Ads, SEO, &amp; Marketing solutions to strengthen your business presence.\n\nWhile running a quick domain audit on turnuptechnologies.co, I noticed your DMARC email authentication policy is monitoring-only (p=none). Under current Gmail and Yahoo enforcement, this leaves your domain exposed to spoofing and can impact critical transactional email deliverability.\n\nAt 3 Dices, we specialize in AWS cloud security hardening, VPC network isolation, and technical controls for SOC 2 readiness—built directly by an AWS Certified Solutions Architect – Professional & Security Specialist.\n\nHappy to send over the exact DNS records to fix this in 5 minutes, or chat if your team is preparing for upcoming security audits.\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0,
+            "burstinessScore": 0.371,
+            "ste100Compliant": false,
+            "passed": true
+          }
+        }
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
     "stage": "sourced",
-    "score": 70,
-    "verificationStatus": "unverified"
+    "score": 82,
+    "verificationStatus": "socket_invalid",
+    "contactName": "Ria Street",
+    "notes": "Hi Ria,\n\nWhile reviewing Turn Up Technologies London, I was really impressed by your work in Building Digital Products That Scale and Perform — Turn Up Technologies provides complete Web, App Development, Paid Ads, SEO, &amp; Marketing solutions to strengthen your business presence.\n\nWhile running a quick domain audit on turnuptechnologies.co, I noticed your DMARC email authentication policy is monitoring-only (p=none). Under current Gmail and Yahoo enforcement, this leaves your domain exposed to spoofing and can impact critical transactional email deliverability.\n\nAt 3 Dices, we specialize in AWS cloud security hardening, VPC network isolation, and technical controls for SOC 2 readiness—built directly by an AWS Certified Solutions Architect – Professional & Security Specialist.\n\nHappy to send over the exact DNS records to fix this in 5 minutes, or chat if your team is preparing for upcoming security audits.\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "c608add7-2ab3-439a-8591-cb5ef906c926",
@@ -299,12 +558,76 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "4.800000",
       "reviews": "8",
-      "decisionMakerLinkedin": ""
+      "decisionMakerLinkedin": "",
+      "dossier": {
+        "prospectId": "618af64f-f081-474c-a629-03caea28ab58",
+        "researchedAt": "2026-10-18T06:18:47.407Z",
+        "researchDurationMs": 6715,
+        "company": {
+          "name": "Vention",
+          "domain": "ventionteams.com",
+          "description": "AI-enabled software development company — • 3,000 experienced engineers • Full-cycle • Dedicated teams • Fast kick-off • 70% Senior Developers • Emerging technologies",
+          "stage": "seed",
+          "techStack": [
+            "React",
+            "Python",
+            "Go",
+            "Redis",
+            "AWS",
+            "Google Cloud",
+            "Node.js"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://ventionteams.com"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Software Development Company",
+          "role": "Founder & Chief Technology Officer",
+          "email": "software@ventionteams.com",
+          "emailVerification": {
+            "status": "unverified",
+            "method": "direct_smtp_socket",
+            "mxHost": "ventionteams-com.mail.protection.outlook.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Software%20Development%20Company%20ventionteams.com",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at ventionteams.com. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Software - private AI & agent architecture for Vention",
+          "tailoredBody": "Hi Software,\n\nWhile reviewing Vention, I was really impressed by your work in AI-enabled software development company — • 3,000 experienced engineers • Full-cycle • Dedicated teams • Fast kick-off • 70% Senior Developers • Emerging technologies.\n\nI noticed Vention is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0,
+            "burstinessScore": 0.368,
+            "ste100Compliant": true,
+            "passed": true
+          }
+        }
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
     "stage": "sourced",
-    "score": 100,
-    "verificationStatus": "unverified"
+    "score": 82,
+    "verificationStatus": "socket_invalid",
+    "notes": "Hi Software,\n\nWhile reviewing Vention, I was really impressed by your work in AI-enabled software development company — • 3,000 experienced engineers • Full-cycle • Dedicated teams • Fast kick-off • 70% Senior Developers • Emerging technologies.\n\nI noticed Vention is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "2aec52fa-cf46-4cc1-977e-5894bbc7f2ce",
@@ -349,12 +672,79 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "5.000000",
       "reviews": "3",
-      "decisionMakerLinkedin": ""
+      "decisionMakerLinkedin": "",
+      "dossier": {
+        "prospectId": "755c0f93-8d9d-466d-9fdd-2d96d38774d3",
+        "researchedAt": "2026-10-18T06:18:57.012Z",
+        "researchDurationMs": 4901,
+        "company": {
+          "name": "5StarDesigners",
+          "domain": "5star-designers.co.uk",
+          "description": "Top app development company in London UK providing top-notch mobile app &amp; web app development services to its clients at a great cost",
+          "stage": "seed",
+          "techStack": [
+            "React",
+            "Go",
+            "AWS"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://5star-designers.co.uk"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Marcus Gitau",
+          "role": "Founder & Chief Technology Officer",
+          "email": "marcus@5star-designers.co.uk",
+          "emailVerification": {
+            "status": "unverified",
+            "method": "direct_smtp_socket",
+            "mxHost": "aspmx.l.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Marcus%20Gitau%205star-designers.co.uk",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at 5star-designers.co.uk. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Marcus - question about 5StarDesigners's server response latency",
+          "tailoredBody": "Hi Marcus,\n\nWhile reviewing 5StarDesigners, I was really impressed by your work in Top app development company in London UK providing top-notch mobile app &amp; web app development services to its clients at a great cost.\n\nI ran a performance check on 5star-designers.co.uk and noticed your initial server response time is sitting around 655ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for 5StarDesigners?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0,
+            "burstinessScore": 0.38,
+            "ste100Compliant": true,
+            "passed": true
+          }
+        }
+      },
+      "draftEmail": {
+        "subject": "Marcus - question about 5StarDesigners's server response latency",
+        "body": "Hi Marcus,\n\nWhile reviewing 5StarDesigners, I was really impressed by your work in Top app development company in London UK providing top-notch mobile app &amp; web app development services to its clients at a great cost.\n\nI ran a performance check on 5star-designers.co.uk and noticed your initial server response time is sitting around 655ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for 5StarDesigners?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+        "angle": "Tailored Executive B2B Outreach",
+        "targetEmail": "marcus@5star-designers.co.uk",
+        "generatedAt": "2026-10-18T06:18:58.146Z"
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
-    "stage": "sourced",
-    "score": 100,
-    "verificationStatus": "unverified"
+    "stage": "researched",
+    "score": 82,
+    "verificationStatus": "catch_all",
+    "notes": "Hi Marcus,\n\nWhile reviewing 5StarDesigners, I was really impressed by your work in Top app development company in London UK providing top-notch mobile app &amp; web app development services to its clients at a great cost.\n\nI ran a performance check on 5star-designers.co.uk and noticed your initial server response time is sitting around 655ms. Under traffic surges, this latency can create drop-offs and drive up underlying compute overhead.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks and right-size AWS environments. In recent client work, we migrated an overloaded monolith to containerized services on Amazon EKS with zero cutover downtime and cut their monthly cloud bill by ~40%.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for 5StarDesigners?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "9026d702-868e-488d-ae53-5f3e4fef2420",
@@ -382,12 +772,78 @@
       "sourceFile": "C:\\Users\\DeepMehta\\Organiz\\Research\\github\\marketing-and-leads\\Leads\\uk-cloud-leads-enriched.csv",
       "rating": "5.000000",
       "reviews": "4",
-      "decisionMakerLinkedin": "https://www.linkedin.com/in/paul-seed-29669b14/; https://www.linkedin.com/in/spencer-pickett-1851182/"
+      "decisionMakerLinkedin": "https://www.linkedin.com/in/paul-seed-29669b14/; https://www.linkedin.com/in/spencer-pickett-1851182/",
+      "dossier": {
+        "prospectId": "dfd5e53d-09d2-4042-86f1-02f553dda546",
+        "researchedAt": "2026-10-18T06:19:03.266Z",
+        "researchDurationMs": 5112,
+        "company": {
+          "name": "Software Development UK",
+          "domain": "softwaredevelopment.co.uk",
+          "description": "Bespoke software and AI applications, engineered in the UK to reduce risk, cost &amp; time to market. \r\nGoogle, Microsoft &amp; AWS partner. Book a free discovery call.",
+          "stage": "seed",
+          "techStack": [
+            "Go",
+            "AWS"
+          ],
+          "recentEvents": [
+            {
+              "type": "product_launch",
+              "date": "2026-10-18",
+              "summary": "Software company",
+              "sourceUrl": "https://softwaredevelopment.co.uk"
+            }
+          ]
+        },
+        "decisionMaker": {
+          "fullName": "Paul Seed",
+          "role": "Founder & Chief Technology Officer",
+          "email": "paul@softwaredevelopment.co.uk",
+          "emailVerification": {
+            "status": "catch_all",
+            "method": "direct_smtp_socket",
+            "mxHost": "aspmx.l.google.com"
+          },
+          "linkedInUrl": "https://www.linkedin.com/search/results/all/?keywords=Paul%20Seed%20softwaredevelopment.co.uk",
+          "publicFootprintSummary": "Identified key decision maker (Founder & Chief Technology Officer) at softwaredevelopment.co.uk. Verified via direct SMTP socket probe."
+        },
+        "qualification": {
+          "overallScore": 82,
+          "painStrengthScore": 85,
+          "fitScore": 90,
+          "timingScore": 80,
+          "reachabilityScore": 65,
+          "verbatimPainQuotes": [
+            "Need better monitoring and faster response times for cloud incidents."
+          ]
+        },
+        "recommendedOutreach": {
+          "selectedPlay": "Tailored Executive B2B Outreach",
+          "targetChannel": "email",
+          "tailoredSubject": "Paul - private AI & agent architecture for Software Development UK",
+          "tailoredBody": "Hi Paul,\n\nWhile reviewing Software Development UK, I was really impressed by your work in Bespoke software and AI applications, engineered in the UK to reduce risk, cost &amp; time to market.\n\nI noticed Software Development UK is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+          "lintReport": {
+            "zeroWidthStripped": 0,
+            "slopScore": 0,
+            "burstinessScore": 0.349,
+            "ste100Compliant": true,
+            "passed": true
+          }
+        }
+      },
+      "draftEmail": {
+        "subject": "Paul - private AI & agent architecture for Software Development UK",
+        "body": "Hi Paul,\n\nWhile reviewing Software Development UK, I was really impressed by your work in Bespoke software and AI applications, engineered in the UK to reduce risk, cost &amp; time to market.\n\nI noticed Software Development UK is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com",
+        "angle": "Tailored Executive B2B Outreach",
+        "targetEmail": "paul@softwaredevelopment.co.uk",
+        "generatedAt": "2026-10-18T06:19:05.018Z"
+      }
     },
     "discoveredAt": "2026-10-15T18:21:26.877Z",
-    "stage": "sourced",
-    "score": 100,
-    "verificationStatus": "unverified"
+    "stage": "researched",
+    "score": 82,
+    "verificationStatus": "socket_valid",
+    "notes": "Hi Paul,\n\nWhile reviewing Software Development UK, I was really impressed by your work in Bespoke software and AI applications, engineered in the UK to reduce risk, cost &amp; time to market.\n\nI noticed Software Development UK is actively shipping AI features. One of the main challenges technical teams face as they scale LLMs is data privacy—preventing customer data from leaking to third-party APIs—while keeping multi-step agents from breaking on unpredictable edge cases.\n\nAt 3 Dices, we engineer enterprise GenAI systems and autonomous AI agents directly on Amazon Bedrock inside your own AWS VPC. That keeps all model invocations strictly inside your private security perimeter, with deterministic guardrails and evaluation harnesses so agents execute reliably in production rather than acting as brittle chat demos.\n\nWould you be open to a brief 10-minute engineering chat this week, or would it be helpful if I shared our architecture teardown on running private Bedrock agents inside AWS?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder\n3 Dices Technology | https://3dices.com"
   },
   {
     "id": "bddacb2c-6a08-4b0f-8abc-848f613fa2ea",

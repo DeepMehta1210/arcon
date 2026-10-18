@@ -1,6 +1,6 @@
 import { verifyEmail } from "@arcon/verifier";
 import { resolveMx, resolveTxt } from "node:dns/promises";
-import { isGenericEmail } from "./pipeline-engine";
+import { isGenericEmail, isLikelyPersonName, sanitizeEmail } from "./pipeline-engine";
 
 export interface CompanyIntel {
   name: string;
@@ -182,6 +182,9 @@ export async function researchDecisionMaker(
 ): Promise<DecisionMakerIntel> {
   const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
   let name = candidateName?.trim();
+  if (name && !isLikelyPersonName(name)) {
+    name = undefined;
+  }
   let role = "Founder & Chief Technology Officer";
   let linkedInUrl: string | undefined = undefined;
 
@@ -265,8 +268,9 @@ export async function researchDecisionMaker(
 
   // Add only valid personal (non-generic) scraped emails from the website
   for (const email of scrapedEmails) {
-    if (email.endsWith(`@${cleanDomain}`) && !isGenericEmail(email) && !candidateEmails.includes(email)) {
-      candidateEmails.push(email);
+    const cleanEmail = sanitizeEmail(email);
+    if (cleanEmail.endsWith(`@${cleanDomain}`) && !isGenericEmail(cleanEmail) && !candidateEmails.includes(cleanEmail)) {
+      candidateEmails.push(cleanEmail);
     }
   }
 
