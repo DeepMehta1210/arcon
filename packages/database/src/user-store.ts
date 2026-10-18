@@ -5,6 +5,16 @@ import process from "node:process";
 
 export type UserRole = "admin" | "sales" | "viewer";
 
+export interface UserSmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  fromName: string;
+  configuredAt: string;
+}
+
 export interface StoredUser {
   id: string;
   email: string;
@@ -14,9 +24,13 @@ export interface StoredUser {
   status: "active" | "suspended";
   createdAt: string;
   updatedAt: string;
+  smtpConfig?: UserSmtpConfig;
 }
 
-export type SafeUser = Omit<StoredUser, "passwordHash">;
+export type SafeUser = Omit<StoredUser, "passwordHash" | "smtpConfig"> & {
+  smtpConfigured?: boolean;
+  smtpUser?: string;
+};
 
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -130,8 +144,17 @@ export class UserStore {
     return this.users.get(id) || null;
   }
 
+  private toSafeUser(user: StoredUser): SafeUser {
+    const { passwordHash: _, smtpConfig, ...rest } = user;
+    return {
+      ...rest,
+      smtpConfigured: Boolean(smtpConfig?.pass),
+      smtpUser: smtpConfig?.user
+    };
+  }
+
   public getAllUsers(): SafeUser[] {
-    return Array.from(this.users.values()).map(({ passwordHash: _, ...rest }) => rest);
+    return Array.from(this.users.values()).map((u) => this.toSafeUser(u));
   }
 
   public verifyCredentials(email: string, password: string): SafeUser | null {
@@ -140,8 +163,7 @@ export class UserStore {
 
     // Check hashed password
     if (verifyPassword(password, user.passwordHash)) {
-      const { passwordHash: _, ...safe } = user;
-      return safe;
+      return this.toSafeUser(user);
     }
 
     // Support legacy/env password fallback during rollout
@@ -150,11 +172,34 @@ export class UserStore {
       // Auto-migrate to current password hash
       user.passwordHash = hashPassword(password);
       this.saveToDisk();
-      const { passwordHash: _, ...safe } = user;
-      return safe;
+      return this.toSafeUser(user);
     }
 
     return null;
+  }
+
+  public setUserSmtp(userId: string, smtp: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    fromName: string;
+  }): boolean {
+    const user = this.users.get(userId);
+    if (!user) return false;
+    user.smtpConfig = {
+      ...smtp,
+      configuredAt: new Date().toISOString()
+    };
+    user.updatedAt = new Date().toISOString();
+    this.saveToDisk();
+    return true;
+  }
+
+  public getUserSmtp(userId: string): UserSmtpConfig | undefined {
+    const user = this.users.get(userId);
+    return user?.smtpConfig;
   }
 
   public createUser(params: {
@@ -183,8 +228,7 @@ export class UserStore {
     this.users.set(newUser.id, newUser);
     this.saveToDisk();
 
-    const { passwordHash: _, ...safe } = newUser;
-    return safe;
+    return this.toSafeUser(newUser);
   }
 
   public deleteUser(id: string, requesterId?: string): boolean {

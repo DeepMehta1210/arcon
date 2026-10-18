@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { verifySession, AUTH_COOKIE_NAME } from "@/lib/auth";
 import { dispatchColdEmail } from "@arcon/outbound-email";
-import { LeadStore } from "@arcon/database";
+import { LeadStore, UserStore } from "@arcon/database";
 
 export async function POST(request: Request) {
   try {
@@ -14,21 +16,40 @@ export async function POST(request: Request) {
       );
     }
 
+    // 1. Identify logged in user and their personal Zoho SMTP credentials
+    const cookieStore = await cookies();
+    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    const session = token ? await verifySession(token) : null;
+
+    const userStore = UserStore.getInstance();
+    const dbUser = session ? (userStore.getUserById(session.id) || userStore.getUserByEmail(session.email)) : null;
+    const userSmtp = dbUser ? userStore.getUserSmtp(dbUser.id) : null;
+
+    // 2. Resolve credentials (Priority: Per-user SMTP -> Global Env -> Fallback)
+    const effectiveUser = userSmtp?.user || process.env.SMTP_USER || process.env.ZOHO_USER || senderEmail || dbUser?.email || "deep@3dices.com";
+    const effectivePass = userSmtp?.pass || process.env.SMTP_PASS || process.env.ZOHO_PASSWORD || "";
+    const effectiveHost = userSmtp?.host || process.env.SMTP_HOST || (effectivePass ? "smtp.zoho.in" : "");
+    const effectivePort = userSmtp?.port || parseInt(process.env.SMTP_PORT || "465", 10);
+    const effectiveSecure = effectivePort === 465;
+    const fromName = userSmtp?.fromName || senderName || dbUser?.fullName || process.env.SMTP_FROM_NAME || "Deep Mehta";
+
+    const hasLiveSmtp = Boolean(effectiveHost && effectivePass);
+
     const receipt = await dispatchColdEmail({
       toEmail,
       toName,
       subject,
       body: emailBody,
       enforceSte100: false,
-      smtpConfig: {
-        host: process.env.SMTP_HOST || "",
-        port: parseInt(process.env.SMTP_PORT || "465", 10),
-        secure: process.env.SMTP_SECURE !== "false",
-        user: process.env.SMTP_USER || "",
-        pass: process.env.SMTP_PASS || "",
-        fromEmail: senderEmail || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "deep@3dices.com",
-        fromName: senderName || process.env.SMTP_FROM_NAME || "Deep Mehta"
-      }
+      smtpConfig: hasLiveSmtp ? {
+        host: effectiveHost,
+        port: effectivePort,
+        secure: effectiveSecure,
+        user: effectiveUser,
+        pass: effectivePass,
+        fromEmail: effectiveUser,
+        fromName
+      } : undefined
     });
 
     if (receipt.status === "rejected_linter") {
@@ -51,7 +72,8 @@ export async function POST(request: Request) {
             senderEmail: receipt.fromEmail,
             subject: receipt.subject,
             status: receipt.status,
-            messageId: receipt.messageId
+            messageId: receipt.messageId,
+            isLiveSmtp: hasLiveSmtp
           }
         }
       });
@@ -59,7 +81,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      receipt
+      receipt,
+      isLiveSmtp: hasLiveSmtp,
+      sender: effectiveUser
     });
   } catch (error) {
     return NextResponse.json(

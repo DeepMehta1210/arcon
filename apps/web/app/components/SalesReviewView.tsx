@@ -22,7 +22,9 @@ import {
   Clock,
   Layers,
   ArrowRight,
-  Play
+  Play,
+  Key,
+  X
 } from "lucide-react";
 
 export interface StoredLead {
@@ -180,12 +182,36 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [targetEmail, setTargetEmail] = useState("");
-  const [senderEmail, setSenderEmail] = useState("deep@3dices.com");
+  const [senderEmail, setSenderEmail] = useState(currentUser?.email || "deep@3dices.com");
 
   // Status feedback
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+
+  // Per-User Zoho SMTP State
+  const [smtpConfigured, setSmtpConfigured] = useState(false);
+  const [smtpUser, setSmtpUser] = useState(currentUser?.email || "deep@3dices.com");
+  const [isSmtpModalOpen, setIsSmtpModalOpen] = useState(false);
+  const [appPasswordInput, setAppPasswordInput] = useState("");
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpModalError, setSmtpModalError] = useState<string | null>(null);
+  const [smtpModalSuccess, setSmtpModalSuccess] = useState<string | null>(null);
+
+  // Check per-user SMTP status
+  useEffect(() => {
+    const checkSmtp = async () => {
+      try {
+        const res = await fetch("/api/users/me/smtp");
+        const data = await res.json();
+        if (data.success) {
+          setSmtpConfigured(Boolean(data.configured));
+          if (data.user) setSmtpUser(data.user);
+        }
+      } catch {}
+    };
+    checkSmtp();
+  }, [currentUser]);
 
   // Re-generating pitch state
   const [regenerating, setRegenerating] = useState(false);
@@ -263,7 +289,46 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
     return slopWords.filter((w) => body.toLowerCase().includes(w));
   }, [body]);
 
-  // Send Approved Email
+  // Save & Verify Zoho App Password
+  const handleSaveSmtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!appPasswordInput.trim()) {
+      setSmtpModalError("Please enter your Zoho App Password.");
+      return;
+    }
+    setSmtpSaving(true);
+    setSmtpModalError(null);
+    setSmtpModalSuccess(null);
+    try {
+      const res = await fetch("/api/users/me/smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appPassword: appPasswordInput.trim(),
+          host: "smtp.zoho.in",
+          port: 465
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmtpModalSuccess(data.message || "Zoho SMTP connected successfully!");
+        setSmtpConfigured(true);
+        setAppPasswordInput("");
+        setTimeout(() => {
+          setIsSmtpModalOpen(false);
+          setSmtpModalSuccess(null);
+        }, 1500);
+      } else {
+        setSmtpModalError(data.error || "Connection test failed. Check your Zoho App Password.");
+      }
+    } catch (err) {
+      setSmtpModalError((err as Error).message);
+    } finally {
+      setSmtpSaving(false);
+    }
+  };
+
+  // Send Approved Email via Server
   const handleSendEmail = async () => {
     if (!currentLead || !targetEmail.trim() || !subject.trim() || !body.trim() || sending) return;
 
@@ -279,7 +344,7 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
           toEmail: targetEmail.trim(),
           subject: subject.trim(),
           body: body.trim(),
-          senderEmail: senderEmail.trim(),
+          senderEmail: currentUser?.email || senderEmail.trim(),
           senderName: currentUser?.name || "Deep Mehta",
           leadId: currentLead.id
         })
@@ -287,17 +352,22 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
 
       const data = await res.json();
       if (data.success) {
-        setSendSuccess(
-          `Dispatched to ${targetEmail} (Receipt: ${data.receipt?.messageId || data.receipt?.receiptId || "OK"})`
-        );
+        if (data.isLiveSmtp) {
+          setSendSuccess(
+            `✓ Successfully delivered live from ${data.sender} to ${targetEmail} via Zoho SMTP!`
+          );
+        } else {
+          setSendSuccess(
+            `⚠️ Dispatched in Dry Run mode (SMTP not connected for ${currentUser?.email || "you"}). Click "Connect Zoho SMTP" above to send live.`
+          );
+        }
         await onLeadsUpdated();
-        // Advance to next lead after short pause
         setTimeout(() => {
           if (currentIndex < readyLeads.length - 1) {
             setCurrentIndex((prev) => prev + 1);
           }
           setSendSuccess(null);
-        }, 1500);
+        }, 2200);
       } else {
         setSendError(data.error || "Failed to dispatch email.");
       }
@@ -387,6 +457,20 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
               <span className="text-zinc-400">Auto-enriching 24/7</span>
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setIsSmtpModalOpen(true)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
+              smtpConfigured
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+            }`}
+            title="Configure your personal Zoho Mail App Password so emails are sent directly from your account"
+          >
+            <Key className="h-3.5 w-3.5" />
+            <span>{smtpConfigured ? `Zoho SMTP: ${smtpUser}` : `Connect Zoho SMTP (${currentUser?.name || "You"})`}</span>
+          </button>
 
           <button
             onClick={handleRunEngineBatch}
@@ -596,10 +680,20 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
               {/* Sender & Target Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-medium text-zinc-400 mb-1">Send As (Founder)</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-medium text-zinc-400">Send As (Your Account)</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsSmtpModalOpen(true)}
+                      className="text-[10px] text-indigo-400 hover:underline flex items-center gap-1 font-medium"
+                    >
+                      <Key className="h-2.5 w-2.5" />
+                      {smtpConfigured ? "Update Password" : "Connect Password"}
+                    </button>
+                  </div>
                   <div className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-white">
                     <User className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                    <span className="font-medium truncate">Deep Mehta &lt;deep@3dices.com&gt;</span>
+                    <span className="font-medium truncate">{currentUser?.name || "Deep Mehta"} &lt;{currentUser?.email || "deep@3dices.com"}&gt;</span>
                   </div>
                 </div>
                 <div>
@@ -677,7 +771,7 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-3 border-t border-zinc-800/80">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
                 <button
                   type="button"
                   onClick={() => setCurrentIndex((prev) => Math.min(readyLeads.length - 1, prev + 1))}
@@ -686,19 +780,62 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                   Skip to Next Lead →
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* 1-Click Open in Zoho Mail */}
+                  <a
+                    href={`https://mail.zoho.in/zm/#mail/compose?to=${encodeURIComponent(targetEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={async () => {
+                      if (currentLead) {
+                        await fetch(`/api/leads/${currentLead.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ stage: "contacted" })
+                        });
+                        await onLeadsUpdated();
+                      }
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-indigo-700/60 bg-indigo-950/40 hover:bg-indigo-900/60 px-3.5 py-2 text-xs font-medium text-indigo-200 transition"
+                    title="Open this pre-filled pitch in your logged-in Zoho Mail account"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 text-indigo-400" />
+                    Open in Zoho Mail
+                  </a>
+
+                  {/* Default Mail Client (mailto) */}
+                  <a
+                    href={`mailto:${encodeURIComponent(targetEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
+                    onClick={async () => {
+                      if (currentLead) {
+                        await fetch(`/api/leads/${currentLead.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ stage: "contacted" })
+                        });
+                        await onLeadsUpdated();
+                      }
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 px-3 py-2 text-xs text-zinc-300 hover:text-white transition"
+                    title="Open in your default desktop mail app (Outlook, Apple Mail, etc.)"
+                  >
+                    <Mail className="h-3.5 w-3.5 text-zinc-400" />
+                    Default App
+                  </a>
+
+                  {/* Autonomous Server Dispatch */}
                   <button
                     type="button"
                     disabled={sending || !targetEmail.trim()}
                     onClick={handleSendEmail}
-                    className="flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-5 py-2 text-xs font-semibold text-zinc-950 transition shadow-lg shadow-emerald-950/20 disabled:opacity-40"
+                    className="flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-zinc-950 transition shadow-lg shadow-emerald-950/20 disabled:opacity-40"
                   >
                     {sending ? (
                       <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Send className="h-3.5 w-3.5" />
                     )}
-                    {sending ? "Dispatching..." : "Approve & Send Email"}
+                    {sending ? "Sending..." : "Approve & Send via Server"}
                   </button>
                 </div>
               </div>
@@ -706,6 +843,125 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
           </div>
         </div>
       ) : null}
+
+      {/* Zoho SMTP Connection Modal */}
+      {isSmtpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Key className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Connect Zoho Mailbox</h3>
+                  <p className="text-xs text-zinc-400">{currentUser?.email || "deep@3dices.com"}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSmtpModalOpen(false);
+                  setSmtpModalError(null);
+                  setSmtpModalSuccess(null);
+                }}
+                className="rounded-lg p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="rounded-lg border border-indigo-950/80 bg-indigo-950/30 p-3 space-y-2 text-xs text-zinc-300">
+              <p className="font-semibold text-indigo-300">How to get your Zoho App Password (60 seconds):</p>
+              <ol className="list-decimal list-inside space-y-1 text-zinc-400">
+                <li>
+                  Open{" "}
+                  <a
+                    href="https://accounts.zoho.in/home#security/app_password"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-400 underline font-medium"
+                  >
+                    Zoho Account Security ↗
+                  </a>
+                </li>
+                <li>Go to <strong>Security → App Passwords</strong></li>
+                <li>Click <strong>Generate New Password</strong> (Name: <code className="bg-zinc-950 px-1 py-0.5 rounded text-zinc-300">3 Dices</code>)</li>
+                <li>Copy the 16-character code and paste below:</li>
+              </ol>
+            </div>
+
+            <form onSubmit={handleSaveSmtp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Your Sender Email
+                </label>
+                <input
+                  type="email"
+                  disabled
+                  value={currentUser?.email || "deep@3dices.com"}
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-400 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Zoho 16-Character App Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={appPasswordInput}
+                  onChange={(e) => setAppPasswordInput(e.target.value)}
+                  placeholder="xxxx yyyy zzzz wwww"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500">
+                <div>Server: <span className="font-mono text-zinc-400">smtp.zoho.in</span></div>
+                <div>Port: <span className="font-mono text-zinc-400">465 (SSL)</span></div>
+              </div>
+
+              {smtpModalError && (
+                <div className="rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{smtpModalError}</span>
+                </div>
+              )}
+
+              {smtpModalSuccess && (
+                <div className="rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>{smtpModalSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+                <button
+                  type="button"
+                  onClick={() => setIsSmtpModalOpen(false)}
+                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={smtpSaving || !appPasswordInput.trim()}
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow transition disabled:opacity-40"
+                >
+                  {smtpSaving ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Key className="h-3.5 w-3.5" />
+                  )}
+                  {smtpSaving ? "Verifying with Zoho..." : "Test Connection & Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

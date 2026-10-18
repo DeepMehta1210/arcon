@@ -52,11 +52,19 @@ export async function GET(request: Request) {
           email: dbUser.email,
           name: dbUser.fullName,
           role: dbUser.role,
+          smtpConfigured: Boolean(dbUser.smtpConfig?.pass),
+          smtpUser: dbUser.smtpConfig?.user || dbUser.email,
         },
       });
     }
 
-    return NextResponse.json({ authenticated: true, user: session });
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        ...session,
+        smtpConfigured: false
+      }
+    });
   } catch {
     return NextResponse.json({ authenticated: false, user: null });
   }

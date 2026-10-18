@@ -136,3 +136,26 @@ export async function dispatchColdEmail(input: EmailDispatchInput): Promise<Emai
     ste100Compliant: true
   };
 }
+
+/**
+ * Tests direct SMTP handshake with mail server.
+ */
+export async function testSmtpConnection(config: SmtpConfig): Promise<{ success: boolean; error?: string }> {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: {
+        user: config.user,
+        pass: config.pass
+      },
+      connectionTimeout: 10000
+    });
+    await transporter.verify();
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}
+
