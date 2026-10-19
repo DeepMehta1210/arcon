@@ -57,11 +57,16 @@ jobs:
             --comment "Bedrock Nova live generation test" \
             --parameters 'commands=[
               "set -e",
+              "export HOME=/root",
+              "export BUN_INSTALL=/root/.bun",
+              "export PATH=/root/.bun/bin:$PATH",
+              "if [ ! -f /root/.bun/bin/bun ]; then curl -fsSL https://bun.sh/install | bash; fi",
               "cd /opt/arcon",
               "git config --system --add safe.directory /opt/arcon || true",
               "git fetch origin",
               "git checkout main",
               "git reset --hard origin/main",
+              "bun install",
               "export BEDROCK_REGION=us-east-1",
               "bun run packages/agent-core/scripts/test-nova.ts \"${{ github.event.inputs.domain }}\" \"${{ github.event.inputs.company_name }}\" \"${{ github.event.inputs.contact_name }}\" \"${{ github.event.inputs.contact_role }}\""
             ]' \
