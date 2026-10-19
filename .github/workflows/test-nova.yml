@@ -60,7 +60,7 @@ jobs:
               "export HOME=/root",
               "export BUN_INSTALL=/root/.bun",
               "export PATH=/root/.bun/bin:$PATH",
-              "if [ ! -f /root/.bun/bin/bun ]; then curl -fsSL https://bun.sh/install | bash; fi",
+              "if [ ! -f /root/.bun/bin/bun ]; then apt-get update -y && apt-get install -y unzip && curl -fsSL https://bun.sh/install | bash; fi",
               "cd /opt/arcon",
               "git config --system --add safe.directory /opt/arcon || true",
               "git fetch origin",
