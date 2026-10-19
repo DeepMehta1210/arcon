@@ -1,0 +1,96 @@
+name: Test Amazon Nova Copywriter via SSM
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Target Company Domain (e.g. magora-systems.com)'
+        required: true
+        default: 'magora-systems.com'
+      company_name:
+        description: 'Target Company Name'
+        required: false
+        default: 'Magora'
+      contact_name:
+        description: 'Target Decision Maker Name'
+        required: false
+        default: 'Pavel Shevtsov'
+      contact_role:
+        description: 'Target Decision Maker Role'
+        required: false
+        default: 'CEO & Founder'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run-nova-test:
+    name: Run Bedrock Nova Test on EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS Credentials via GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME || vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'ap-south-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Trigger SSM Run Command on EC2
+        run: |
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=tag:App,Values=arcon" "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].InstanceId" \
+            --output text)
+
+          if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
+            echo "❌ No running EC2 instance found with tag App=arcon"
+            exit 1
+          fi
+
+          echo "Found EC2 instance: $INSTANCE_ID"
+          echo "Target Domain: ${{ github.event.inputs.domain }}"
+
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Bedrock Nova live generation test" \
+            --parameters 'commands=[
+              "set -e",
+              "cd /opt/arcon",
+              "git config --system --add safe.directory /opt/arcon || true",
+              "git fetch origin",
+              "git checkout main",
+              "git reset --hard origin/main",
+              "export BEDROCK_REGION=us-east-1",
+              "bun run packages/agent-core/scripts/test-nova.ts \"${{ github.event.inputs.domain }}\" \"${{ github.event.inputs.company_name }}\" \"${{ github.event.inputs.contact_name }}\" \"${{ github.event.inputs.contact_role }}\""
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command dispatched: $COMMAND_ID"
+          echo "Waiting for Bedrock Nova execution..."
+
+          for i in {1..30}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
+            echo "Status: $STATUS ($i/30)"
+            if [ "$STATUS" = "Success" ]; then
+              echo "=== Bedrock Nova Execution Succeeded ==="
+              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardOutputContent" --output text
+              exit 0
+            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              echo "❌ Command ended with status: $STATUS"
+              echo "=== Standard Output ==="
+              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardOutputContent" --output text
+              echo "=== Standard Error ==="
+              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardErrorContent" --output text
+              exit 1
+            fi
+            sleep 3
+          done
+          echo "❌ Timed out waiting for SSM completion"
+          exit 1
