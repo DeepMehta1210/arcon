@@ -3,6 +3,10 @@ name: Test Amazon Nova Copywriter via SSM
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: 'Action to execute (test or stop_ec2)'
+        required: false
+        default: 'test'
       domain:
         description: 'Target Company Domain (e.g. magora-systems.com)'
         required: true
@@ -57,6 +61,16 @@ jobs:
           fi
 
           echo "Found EC2 instance: $INSTANCE_ID"
+
+          if [ "${{ github.event.inputs.action }}" = "stop_ec2" ]; then
+            echo "🛑 Stopping EC2 instance $INSTANCE_ID..."
+            aws ec2 stop-instances --instance-ids "$INSTANCE_ID"
+            echo "Waiting for instance to stop..."
+            aws ec2 wait instance-stopped --instance-ids "$INSTANCE_ID"
+            echo "✅ EC2 instance $INSTANCE_ID stopped successfully."
+            exit 0
+          fi
+
           echo "Target Domain: ${{ github.event.inputs.domain }}"
 
           COMMAND_ID=$(aws ssm send-command \
