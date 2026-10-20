@@ -70,7 +70,7 @@ async function callBedrockConverse(params: {
   const {
     systemPrompt,
     userPrompt,
-    modelId = process.env.BEDROCK_MODEL_ID || "amazon.nova-lite-v1:0",
+    modelId = process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b",
     temperature = 0.3,
     maxTokens = 1200
   } = params;
@@ -111,7 +111,7 @@ export async function analyzeCompanyWithNova(params: {
   websiteText: string;
   modelId?: string;
 }): Promise<CompanyAnalysis> {
-  const { companyName, domain, websiteText, modelId = "amazon.nova-lite-v1:0" } = params;
+  const { companyName, domain, websiteText, modelId = process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b" } = params;
 
   const systemPrompt = `You are an elite B2B technical research analyst for 3 Dices Technology (a boutique AWS & AI engineering studio).
 Your task is to analyze raw website copy of a target prospect company and extract structured, factual intelligence.
@@ -182,7 +182,7 @@ export async function generateBespokeEmailWithNova(params: {
     analysis,
     senderName = "Deep Mehta",
     senderRole = "AWS Certified Solutions Architect – Professional | Founder",
-    modelId = "amazon.nova-lite-v1:0"
+    modelId = params.modelId || process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b"
   } = params;
 
   const rawFirstName = decisionMakerName.split(/\s+/)[0] || "there";
@@ -275,7 +275,7 @@ export async function probeEmailQualityWithNova(params: {
   companyName: string;
   modelId?: string;
 }): Promise<{ score: number; refinedBody?: string; feedback: string }> {
-  const { emailBody, specificFact, companyName, modelId = "amazon.nova-lite-v1:0" } = params;
+  const { emailBody, specificFact, companyName, modelId = process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b" } = params;
 
   const systemPrompt = `You are an ASD-STE100 and B2B cold email quality auditor.
 Evaluate this outreach email on a scale of 0 to 100 based on:

@@ -19,6 +19,14 @@ on:
         description: 'Target Decision Maker Role'
         required: false
         default: 'CEO & Founder'
+      model_id:
+        description: 'Bedrock Model ID'
+        required: false
+        default: 'nvidia.nemotron-nano-3-30b'
+      bedrock_region:
+        description: 'AWS Bedrock Region'
+        required: false
+        default: 'us-east-1'
 
 permissions:
   id-token: write
@@ -67,7 +75,8 @@ jobs:
               "git checkout main",
               "git reset --hard origin/main",
               "bun install",
-              "export BEDROCK_REGION=us-east-1",
+              "export BEDROCK_REGION=\"${{ github.event.inputs.bedrock_region || 'us-east-1' }}\"",
+              "export BEDROCK_MODEL_ID=\"${{ github.event.inputs.model_id || 'nvidia.nemotron-nano-3-30b' }}\"",
               "bun run packages/agent-core/scripts/test-nova.ts \"${{ github.event.inputs.domain }}\" \"${{ github.event.inputs.company_name }}\" \"${{ github.event.inputs.contact_name }}\" \"${{ github.event.inputs.contact_role }}\""
             ]' \
             --query "Command.CommandId" \

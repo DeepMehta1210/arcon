@@ -32,12 +32,13 @@ async function runTest() {
   const cleanText = extractCleanTextFromHtml(rawHtml);
   console.log(`✓ Clean text extracted (${cleanText.length} characters)\n`);
 
-  console.log(`2. Invoking Amazon Nova Lite for company comprehension...`);
+  const modelId = process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b";
+  console.log(`2. Invoking Bedrock Model (${modelId}) for company comprehension...`);
   const analysis = await analyzeCompanyWithNova({
     companyName,
     domain,
     websiteText: cleanText,
-    modelId: process.env.BEDROCK_MODEL_ID || "amazon.nova-lite-v1:0"
+    modelId
   });
 
   console.log("----------------- ANALYSIS RESULT -----------------");
@@ -48,14 +49,14 @@ async function runTest() {
   console.log(`Specific Hook Fact:  ${analysis.specificHookFact}`);
   console.log("---------------------------------------------------\n");
 
-  console.log(`3. Generating bespoke, non-robotic outreach with Amazon Nova...`);
+  console.log(`3. Generating bespoke outreach with Bedrock (${modelId})...`);
   const draft = await generateBespokeEmailWithNova({
     companyName,
     domain,
     decisionMakerName: contactName,
     decisionMakerRole: role,
     analysis,
-    modelId: process.env.BEDROCK_MODEL_ID || "amazon.nova-lite-v1:0"
+    modelId
   });
 
   console.log("================ GENERATED EMAIL ================");
