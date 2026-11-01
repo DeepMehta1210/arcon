@@ -236,11 +236,26 @@ export async function enrichAndPersonalizeLead(
 
   const subject =
     dossier.recommendedOutreach?.tailoredSubject ||
-    `Question regarding ${cleanedCompany}'s cloud infrastructure`;
+    "cloud bill";
 
   const body =
     dossier.recommendedOutreach?.tailoredBody ||
-    `Hi ${firstName || "there"},\n\nI was reviewing ${cleanedCompany}'s infrastructure and noticed your engineering team is actively scaling.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40%.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional | Founder, 3 Dices`;
+    `Hi ${firstName || "there"},
+
+You're at a vending machine. Diet Coke: $0 or $1.50. What would you choose? Zero, right?
+
+Then why pay AWS on-demand rates when Graviton instances + compute savings plans give ${cleanedCompany} the exact same compute for 40% less?
+
+Took 2 minutes to calculate the monthly delta for your setup. 
+
+Is this accurate for your current infrastructure?
+
+Best regards,
+Deep Mehta
+AWS Certified Solutions Architect – Professional | Founder
+3 Dices Technology | https://3dices.com
+LinkedIn: https://linkedin.com/in/deepmehta
+PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`;
 
   return {
     leadId: lead.id,

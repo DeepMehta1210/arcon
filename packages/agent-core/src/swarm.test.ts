@@ -60,11 +60,11 @@ describe("Research Swarm and 5-Factor Rubric", () => {
       dmarcPolicy: "reject"
     });
 
-    expect(email.subject).toContain("private AI & agent architecture");
+    expect(email.subject).toBe("bedrock rag");
     expect(email.body).toContain("Amazon Bedrock");
     expect(email.body).toContain("Elena");
     expect(email.body).toContain("3 Dices Technology");
-    expect(email.body).toContain("AWS Certified Solutions Architect");
+    expect(email.body).toContain("Want access to my notes?");
   });
 
   it("crafts 3 Dices FinOps & AWS Architecture review for slow latency leads", () => {
@@ -80,10 +80,10 @@ describe("Research Swarm and 5-Factor Rubric", () => {
       dmarcPolicy: "reject"
     });
 
-    expect(email.subject).toContain("server response latency");
+    expect(email.subject).toBe("latency");
     expect(email.body).toContain("920ms");
-    expect(email.body).toContain("complimentary 30-Minute AWS Architecture & Cost Review");
-    expect(email.body).toContain("~40%");
+    expect(email.body).toContain("6-point checklist");
+    expect(email.body).toContain("Want me to send the checklist over?");
   });
 
   it("crafts 3 Dices Security & DMARC hardening for vulnerable domains", () => {
@@ -99,9 +99,9 @@ describe("Research Swarm and 5-Factor Rubric", () => {
       dmarcPolicy: "none"
     });
 
-    expect(email.subject).toContain("email security setup");
+    expect(email.subject).toBe("dmarc audit");
     expect(email.body).toContain("monitoring-only (p=none)");
     expect(email.body).toContain("SOC 2");
-    expect(email.body).toContain("Security Specialist");
+    expect(email.body).toContain("Want me to send them over?");
   });
 });

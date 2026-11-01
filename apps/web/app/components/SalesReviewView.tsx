@@ -24,7 +24,9 @@ import {
   ArrowRight,
   Play,
   Key,
-  X
+  X,
+  MessageSquare,
+  Phone
 } from "lucide-react";
 
 export interface StoredLead {
@@ -152,7 +154,10 @@ export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
   const draftTarget = (lead.signalData as any)?.draftEmail?.targetEmail;
   const target = draftTarget || lead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
 
-  if (!target || isGenericEmail(target) || !isValidEmail(target)) return false;
+  const hasEmailTarget = Boolean(target && !isGenericEmail(target) && isValidEmail(target));
+  const hasPhoneTarget = Boolean(lead.phone && lead.phone.replace(/[^\d]/g, "").length >= 10);
+
+  if (!hasEmailTarget && !hasPhoneTarget) return false;
 
   const hasDraft = Boolean((lead.signalData as any)?.draftEmail?.body || lead.notes);
   return hasDraft;
@@ -216,6 +221,21 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
   // Re-generating pitch state
   const [regenerating, setRegenerating] = useState(false);
 
+  // OpenWA Gateway status & sending state
+  const [sendingWa, setSendingWa] = useState(false);
+  const [waGatewayStatus, setWaGatewayStatus] = useState<{ available: boolean; status: string } | null>(null);
+
+  useEffect(() => {
+    const checkWa = async () => {
+      try {
+        const res = await fetch("/api/outbound/whatsapp/status");
+        const data = await res.json();
+        setWaGatewayStatus(data);
+      } catch {}
+    };
+    checkWa();
+  }, []);
+
   // Background pipeline engine runner state
   const [processingBatch, setProcessingBatch] = useState(false);
   const [batchSuccess, setBatchSuccess] = useState<string | null>(null);
@@ -259,13 +279,28 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
       const initialSubject =
         draft?.subject ||
         dossier?.recommendedOutreach?.tailoredSubject ||
-        `Question regarding ${cleanName}'s cloud infrastructure`;
+        "cloud bill";
 
       const initialBody =
         draft?.body ||
         currentLead.notes ||
         dossier?.recommendedOutreach?.tailoredBody ||
-        `Hi ${firstName || "there"},\n\nI was reviewing ${cleanName}'s infrastructure and noticed your engineering team is actively scaling.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40%.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\n${currentUser?.name || "Deep Mehta"}\nAWS Certified Solutions Architect – Professional | Founder, 3 Dices`;
+        `Hi ${firstName || "there"},
+
+You're at a vending machine. Diet Coke: $0 or $1.50. What would you choose? Zero, right?
+
+Then why pay AWS on-demand rates when Graviton instances + compute savings plans give ${cleanName} the exact same compute for 40% less?
+
+Took 2 minutes to calculate the monthly delta for your setup. 
+
+Is this accurate for your current infrastructure?
+
+Best regards,
+${currentUser?.name || "Deep Mehta"}
+AWS Certified Solutions Architect – Professional | Founder
+3 Dices Technology | https://3dices.com
+LinkedIn: https://linkedin.com/in/deepmehta
+PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`;
 
       const personalCandidate = currentLead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
       const initialEmail =
@@ -378,6 +413,47 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
     }
   };
 
+  // Send WhatsApp message via OpenWA Gateway
+  const handleSendWhatsApp = async () => {
+    if (!currentLead || !currentLead.phone || !body.trim() || sendingWa) return;
+
+    setSendingWa(true);
+    setSendError(null);
+    setSendSuccess(null);
+
+    try {
+      const res = await fetch("/api/outbound/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: currentLead.phone,
+          text: body.trim(),
+          leadId: currentLead.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setSendSuccess(
+          `✓ Dispatched to ${currentLead.phone} via OpenWA Gateway! (Typing simulation & anti-ban applied)`
+        );
+        await onLeadsUpdated();
+        setTimeout(() => {
+          if (currentIndex < readyLeads.length - 1) {
+            setCurrentIndex((prev) => prev + 1);
+          }
+          setSendSuccess(null);
+        }, 2200);
+      } else {
+        setSendError(data.error || "Failed to dispatch WhatsApp message via OpenWA.");
+      }
+    } catch (err) {
+      setSendError((err as Error).message);
+    } finally {
+      setSendingWa(false);
+    }
+  };
+
   // Re-generate pitch angle
   const handleRegenerate = async () => {
     if (!currentLead || regenerating) return;
@@ -457,6 +533,23 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
               <span className="text-zinc-400">Auto-enriching 24/7</span>
             </div>
           )}
+
+          {/* OpenWA Gateway Status Badge */}
+          <div
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
+              waGatewayStatus?.available
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                : "border-zinc-800 bg-zinc-950 text-zinc-400"
+            }`}
+            title="OpenWA Gateway on port 3050. Self-hosted WhatsApp engine."
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+            <span>
+              {waGatewayStatus?.available
+                ? `OpenWA: ${waGatewayStatus.status}`
+                : "OpenWA: Ready"}
+            </span>
+          </div>
 
           <button
             type="button"
@@ -622,6 +715,16 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                   <Mail className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                   <span className="truncate">{targetEmail || "No personal decision-maker email"}</span>
                 </div>
+
+                {currentLead.phone && (
+                  <div className="flex items-center gap-2 text-xs text-zinc-300 bg-zinc-900/60 rounded px-2.5 py-1.5 font-mono">
+                    <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                    <span className="truncate">{currentLead.phone}</span>
+                    <span className="ml-auto text-[10px] text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
+                      WhatsApp Ready
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Detected Tech Stack & Cloud Signals */}
@@ -822,6 +925,38 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                     <Mail className="h-3.5 w-3.5 text-zinc-400" />
                     Default App
                   </a>
+
+                  {/* WhatsApp Web Direct Link */}
+                  {currentLead.phone && (
+                    <a
+                      href={`https://web.whatsapp.com/send?phone=${encodeURIComponent(currentLead.phone.replace(/[^\d]/g, ""))}&text=${encodeURIComponent(body)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 rounded-lg border border-emerald-800/40 bg-emerald-950/40 hover:bg-emerald-900/60 px-3 py-2 text-xs font-medium text-emerald-300 hover:text-white transition"
+                      title="Open in WhatsApp Web with pre-filled pitch"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                      WhatsApp Web
+                    </a>
+                  )}
+
+                  {/* OpenWA Gateway Autonomous Dispatch */}
+                  {currentLead.phone && (
+                    <button
+                      type="button"
+                      disabled={sendingWa || !body.trim()}
+                      onClick={handleSendWhatsApp}
+                      className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-white transition shadow-lg shadow-emerald-950/30 disabled:opacity-40"
+                      title="Send automatically via OpenWA Gateway with human typing simulation"
+                    >
+                      {sendingWa ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      )}
+                      {sendingWa ? "Sending WA..." : "Send via OpenWA"}
+                    </button>
+                  )}
 
                   {/* Autonomous Server Dispatch */}
                   <button

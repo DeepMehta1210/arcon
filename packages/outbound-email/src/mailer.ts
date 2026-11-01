@@ -67,6 +67,7 @@ export async function dispatchColdEmail(input: EmailDispatchInput): Promise<Emai
 
   // 2. Pre-send Quality Gate: Run copy through slop linter (ASD-STE100 optional, default false)
   const lintResult = lintOutreachCopy(input.body, {
+    subject: input.subject,
     enforceSte100: input.enforceSte100 ?? false,
     maxWordsPerSentence: 35
   });

@@ -155,10 +155,15 @@ export default function ArconDashboard() {
     try {
       setLoading(true);
       const res = await fetch("/api/leads?limit=2000");
-      const data = await res.json();
-      if (data.success) {
-        setLeads(data.leads || []);
-        setStats(data.stats || null);
+      if (res.ok) {
+        const text = await res.text();
+        if (text) {
+          const data = JSON.parse(text);
+          if (data.success) {
+            setLeads(data.leads || []);
+            setStats(data.stats || null);
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to load leads:", err);
@@ -170,9 +175,13 @@ export default function ArconDashboard() {
   useEffect(() => {
     fetchLeads();
     fetch("/api/auth/me")
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) return null;
+        const t = await r.text();
+        return t ? JSON.parse(t) : null;
+      })
       .then((data) => {
-        if (data.authenticated && data.user) {
+        if (data && data.authenticated && data.user) {
           setCurrentUser(data.user);
           if (data.user.email) {
             setSelectedSenderEmail(data.user.email);

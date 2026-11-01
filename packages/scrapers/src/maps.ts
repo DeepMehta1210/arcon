@@ -7,6 +7,12 @@ export interface MapsScrapeOptions {
   limit?: number;
 }
 
+export interface IndianBusinessLead extends RawLead {
+  isIndianMobile: boolean;
+  hasWebsite: boolean;
+  suggestedWhatsAppPitch: string;
+}
+
 const SOCIAL_REGEX = {
   instagram: /https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9_.]+)/i,
   facebook: /https?:\/\/(?:www\.|m\.|web\.)?facebook\.com\/([A-Za-z0-9_.\-]+)/i,
@@ -41,11 +47,114 @@ export function extractSocialLinks(html: string): Record<string, string> {
   return socials;
 }
 
+export function formatIndianMobile(phone?: string): { formatted?: string; isValidMobile: boolean } {
+  if (!phone) return { isValidMobile: false };
+  const cleanDigits = phone.replace(/[^\d]/g, "");
+
+  if (cleanDigits.length === 10 && /^[6789]/.test(cleanDigits)) {
+    return { formatted: `+91${cleanDigits}`, isValidMobile: true };
+  }
+  if (cleanDigits.startsWith("91") && cleanDigits.length === 12 && /^[6789]/.test(cleanDigits.slice(2))) {
+    return { formatted: `+${cleanDigits}`, isValidMobile: true };
+  }
+  if (cleanDigits.startsWith("0") && cleanDigits.length === 11 && /^[6789]/.test(cleanDigits.slice(1))) {
+    return { formatted: `+91${cleanDigits.slice(1)}`, isValidMobile: true };
+  }
+
+  return { formatted: phone, isValidMobile: false };
+}
+
+/**
+ * Scrapes businesses and filters for Indian traditional businesses with:
+ * 1. Missing or dead website
+ * 2. Active Indian mobile number (+91 6-9xxxxxxxxx) ready for WhatsApp ping
+ */
+export async function scrapeIndianLocalBusinesses(
+  keyword: string,
+  city: string,
+  limit = 20
+): Promise<IndianBusinessLead[]> {
+  const coords = await geocodeCity(city);
+  const leads: IndianBusinessLead[] = [];
+
+  if (coords) {
+    try {
+      const bboxDelta = 0.08;
+      const minLat = parseFloat(coords.lat) - bboxDelta;
+      const maxLat = parseFloat(coords.lat) + bboxDelta;
+      const minLon = parseFloat(coords.lon) - bboxDelta;
+      const maxLon = parseFloat(coords.lon) + bboxDelta;
+
+      // Overpass query across commercial shops, craft, and industrial amenities
+      const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(node["shop"](${minLat},${minLon},${maxLat},${maxLon});node["craft"](${minLat},${minLon},${maxLat},${maxLon});node["office"](${minLat},${minLon},${maxLat},${maxLon}););out;`;
+      const res = await fetch(overpassUrl, {
+        headers: { "User-Agent": "arcon/1.0" },
+      });
+
+      if (res.ok) {
+        const data = await res.json() as {
+          elements?: Array<{
+            id: number;
+            lat: number;
+            lon: number;
+            tags?: Record<string, string>;
+          }>;
+        };
+
+        for (const el of data.elements ?? []) {
+          const tags = el.tags ?? {};
+          const name = tags.name || tags["operator"];
+          if (!name) continue;
+
+          const rawPhone = tags.phone || tags["contact:phone"] || tags["contact:mobile"];
+          const website = tags.website || tags["contact:website"];
+          const email = tags.email || tags["contact:email"];
+
+          const { formatted, isValidMobile } = formatIndianMobile(rawPhone);
+          const hasWebsite = Boolean(website && website.startsWith("http"));
+
+          // Filter: Prioritize businesses without website or with valid mobile
+          if (isValidMobile && (!hasWebsite || website?.includes("business.site") || website?.includes("justdial"))) {
+            const hook = `{Namaste|Hello} ${name} team, found your details on Google Maps while looking for ${keyword} in ${city}. Quick question—are you currently taking new client orders / inquiries?`;
+
+            leads.push({
+              id: randomUUID(),
+              source: "google_maps",
+              companyName: name,
+              headline: `${keyword} in ${city}`,
+              emailCandidates: email ? [email] : [],
+              phone: formatted,
+              websiteUrl: hasWebsite ? website : undefined,
+              location: {
+                city,
+                country: "India",
+                rawAddress: `${tags["addr:street"] ?? ""} ${tags["addr:city"] ?? city}`.trim(),
+              },
+              socialUrls: {},
+              signalData: {
+                osmId: el.id,
+                category: tags.shop || tags.craft || tags.office || keyword,
+              },
+              discoveredAt: new Date().toISOString(),
+              isIndianMobile: true,
+              hasWebsite,
+              suggestedWhatsAppPitch: hook,
+            });
+
+            if (leads.length >= limit) break;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return leads;
+}
+
 export async function scrapeLocalPlaces(options: MapsScrapeOptions): Promise<RawLead[]> {
   const limit = options.limit ?? 10;
   const coords = await geocodeCity(options.city);
 
-  // Queries OpenStreetMap Overpass API for local place discovery (API-key-free)
   const leads: RawLead[] = [];
 
   if (coords) {
@@ -56,7 +165,6 @@ export async function scrapeLocalPlaces(options: MapsScrapeOptions): Promise<Raw
       const minLon = parseFloat(coords.lon) - bboxDelta;
       const maxLon = parseFloat(coords.lon) + bboxDelta;
 
-      // Overpass query for amenity or shop
       const queryTag = options.keyword.toLowerCase().includes("cafe") || options.keyword.toLowerCase().includes("coffee")
         ? "amenity=cafe"
         : options.keyword.toLowerCase().includes("clinic") || options.keyword.toLowerCase().includes("dental")
@@ -108,23 +216,6 @@ export async function scrapeLocalPlaces(options: MapsScrapeOptions): Promise<Raw
         }
       }
     } catch {}
-  }
-
-  // If live query returns fewer results, return structured fallback lead
-  if (leads.length === 0) {
-    leads.push({
-      id: randomUUID(),
-      source: "google_maps",
-      companyName: `${options.city} ${options.keyword} Co`,
-      headline: `Local ${options.keyword} in ${options.city}`,
-      emailCandidates: [`contact@${options.city.toLowerCase().replace(/[^a-z]/g, "")}biz.com`],
-      phone: "+1 555-0199",
-      websiteUrl: `https://${options.city.toLowerCase().replace(/[^a-z]/g, "")}biz.com`,
-      location: { city: options.city },
-      socialUrls: {},
-      signalData: { geocoded: coords },
-      discoveredAt: new Date().toISOString(),
-    });
   }
 
   return leads;

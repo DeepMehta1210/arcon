@@ -16,10 +16,12 @@ const DEFAULT_SLOP_WORDS = [
 ];
 
 export interface LintOptions {
+  subject?: string;
   enforceSte100?: boolean;
   maxWordsPerSentence?: number;
   maxSlopDensity?: number; // e.g. 0.01 (1%)
   minBurstiness?: number;  // sentence length variation
+  enforceLemlistStandards?: boolean;
 }
 
 export function stripInvisibleCharacters(text: string): { cleanText: string; count: number } {
@@ -72,9 +74,31 @@ export function lintOutreachCopy(text: string, options: LintOptions = {}): LintR
     );
   }
 
-  // 3. Sycophantic opening filter
-  if (/^(I hope this (email|message) finds you well|Allow me to introduce myself|My name is .* and I am reaching out)\b/i.test(cleanText.trim())) {
+  // 3. Sycophantic opening & fake flattery filter
+  if (/^(I hope this (email|message) finds you well|Allow me to introduce myself|My name is .* and I am reaching out|Hope all is well|I hope you are well)\b/i.test(cleanText.trim())) {
     failureReasons.push("Contains prohibited sycophantic opening.");
+  }
+
+  // 3b. Lemlist Playbook Standards: ban fake flattery, time-asks, and long subject lines
+  if (options.enforceLemlistStandards ?? true) {
+    if (options.subject) {
+      const subjectWords = options.subject.trim().split(/\s+/).filter(Boolean);
+      if (subjectWords.length > 3) {
+        failureReasons.push(`Subject line '${options.subject}' exceeds 3 words (${subjectWords.length} words). High-converting subject lines must be 1-3 lowercase words.`);
+      }
+    }
+
+    const timeAskRegex = /\b(10-minute|15-minute|quick call|hop on|jump on a call|discovery call|check your calendar|schedule a call)\b/i;
+    const timeMatch = cleanText.match(timeAskRegex);
+    if (timeMatch) {
+      failureReasons.push(`Contains prohibited Step 1 time-ask ('${timeMatch[0]}'). High-converting emails must use frictionless conversation starters.`);
+    }
+
+    const fakeFlatteryRegex = /\b(really impressed by|admired your work|was impressed by how)\b/i;
+    const flatteryMatch = cleanText.match(fakeFlatteryRegex);
+    if (flatteryMatch) {
+      failureReasons.push(`Contains prohibited fake flattery ('${flatteryMatch[0]}'). Start directly with the verifiable diagnostic fact or analogy.`);
+    }
   }
 
   // 4. Burstiness check

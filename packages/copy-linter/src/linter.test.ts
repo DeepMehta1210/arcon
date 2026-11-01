@@ -38,4 +38,19 @@ describe("ASD-STE100 and Copy Linter", () => {
     expect(result.slopWordsFound.length).toBe(0);
     expect(result.ste100.compliant).toBe(true);
   });
+
+  it("enforces Lemlist Playbook standards: flags long subjects, fake flattery, and time-asks", () => {
+    const badSubject = "vipan - scaling cloud backend & ai for esferasoft";
+    const badBody = "Hi Vipan,\n\nI was really impressed by how your team built GLŌ.\n\nOpen to a quick 10-minute engineering chat this Thursday?";
+    const result = lintOutreachCopy(badBody, { subject: badSubject, enforceSte100: false });
+    expect(result.passed).toBe(false);
+    expect(result.failureReasons.some(r => r.includes("exceeds 3 words"))).toBe(true);
+    expect(result.failureReasons.some(r => r.includes("Step 1 time-ask"))).toBe(true);
+    expect(result.failureReasons.some(r => r.includes("fake flattery"))).toBe(true);
+
+    const goodSubject = "cloud bill";
+    const goodBody = "Hi Vipan,\n\nChecked your AWS setup. Moving to Graviton cuts compute spend by 40%.\n\nIs this accurate for your infrastructure?";
+    const goodResult = lintOutreachCopy(goodBody, { subject: goodSubject, enforceSte100: false });
+    expect(goodResult.passed).toBe(true);
+  });
 });

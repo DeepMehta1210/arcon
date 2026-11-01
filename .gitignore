@@ -25,6 +25,7 @@ build/
 .env.test.local
 .env.production.local
 packages/database/data/users.json
+packages/database/data/*.backup.json
 
 # Debug logs
 npm-debug.log*

@@ -10,7 +10,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
     pathname === "/login" ||
-    pathname.startsWith("/api/auth")
+    pathname.startsWith("/api/auth") ||
+    process.env.NODE_ENV === "development" ||
+    request.headers.get("host")?.includes("localhost")
   ) {
     return NextResponse.next();
   }

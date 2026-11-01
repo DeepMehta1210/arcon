@@ -52,9 +52,11 @@ export async function runResearchSwarm(input: SwarmResearchInput): Promise<Prosp
     dmarcPolicy: siteIntel.dmarcPolicy
   });
 
-  // 5. Clean copy quality gate: strips zero-width and checks slop without robotic 20-word limits
+  // 5. Clean copy quality gate: strips zero-width and checks slop under Lemlist playbook standards
   const lintReport = lintOutreachCopy(properEmail.body, {
+    subject: properEmail.subject,
     enforceSte100: false,
+    enforceLemlistStandards: true,
     maxWordsPerSentence: 40
   });
 

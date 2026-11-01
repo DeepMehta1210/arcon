@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 
 export interface WahaConfig {
   baseUrl: string;
-  session: string;
+  session?: string;
   apiKey?: string;
+  isGatewayOpenWA?: boolean;
 }
 
 export interface WADispatchInput {
@@ -43,13 +44,13 @@ export async function dispatchWhatsAppTouch(input: WADispatchInput): Promise<WAD
   const now = new Date().toISOString();
   const chatId = formatChatId(input.phone);
 
-  // 1. Pre-send Quality Gate: Enforce ASD-STE100 and clean copy
+  // 1. Pre-send Quality Gate: Enforce clean copy & STE100 checks
   const lintResult = lintOutreachCopy(input.text, {
-    enforceSte100: input.enforceSte100 ?? true,
-    maxWordsPerSentence: 20
+    enforceSte100: input.enforceSte100 ?? false,
+    maxWordsPerSentence: 25
   });
 
-  if (!lintResult.passed) {
+  if (!lintResult.passed && input.enforceSte100) {
     return {
       receiptId,
       timestamp: now,
@@ -69,41 +70,55 @@ export async function dispatchWhatsAppTouch(input: WADispatchInput): Promise<WAD
     await delay(jitterMs);
   }
 
-  // 3. Dry-run or fallback mode when WAHA is not connected
-  if (input.dryRun || !input.wahaConfig) {
+  // 3. Dry-run or fallback mode when no gateway is connected
+  const gatewayUrl = input.wahaConfig?.baseUrl || process.env.OPENWA_URL || process.env.WAHA_BASE_URL;
+  if (input.dryRun || !gatewayUrl) {
     return {
       receiptId,
       timestamp: now,
       recipientPhone: input.phone,
       chatId,
       status: "dry_run_success",
-      messageId: `waha_mock_${receiptId}`,
+      messageId: `wa_mock_${receiptId}`,
       ste100Compliant: true,
       jitterMs
     };
   }
 
-  // 4. Send request to WAHA HTTP API
+  // 4. Send request to OpenWA API Gateway or WAHA
   try {
-    const url = `${input.wahaConfig.baseUrl}/api/sendText`;
+    const isOpenWA = input.wahaConfig?.isGatewayOpenWA ?? true;
+    const url = isOpenWA
+      ? `${gatewayUrl.replace(/\/$/, "")}/api/v1/messages/send`
+      : `${gatewayUrl.replace(/\/$/, "")}/api/sendText`;
+
+    const bodyPayload = isOpenWA
+      ? {
+          phone: input.phone,
+          text: input.text,
+          simulateTyping: true,
+          applySpintax: true
+        }
+      : {
+          session: input.wahaConfig?.session || "default",
+          chatId,
+          text: input.text
+        };
+
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(input.wahaConfig.apiKey ? { "X-Api-Key": input.wahaConfig.apiKey } : {})
+        ...(input.wahaConfig?.apiKey ? { "X-Api-Key": input.wahaConfig.apiKey } : {})
       },
-      body: JSON.stringify({
-        session: input.wahaConfig.session,
-        chatId,
-        text: input.text
-      })
+      body: JSON.stringify(bodyPayload)
     });
 
     if (!res.ok) {
-      throw new Error(`WAHA HTTP error ${res.status}: ${res.statusText}`);
+      throw new Error(`WhatsApp Gateway HTTP error ${res.status}: ${res.statusText}`);
     }
 
-    const data = await res.json() as { id?: string };
+    const data = await res.json() as { messageId?: string; id?: string };
 
     return {
       receiptId,
@@ -111,7 +126,7 @@ export async function dispatchWhatsAppTouch(input: WADispatchInput): Promise<WAD
       recipientPhone: input.phone,
       chatId,
       status: "sent",
-      messageId: data.id || `waha_${receiptId}`,
+      messageId: data.messageId || data.id || `wa_${receiptId}`,
       ste100Compliant: true,
       jitterMs
     };

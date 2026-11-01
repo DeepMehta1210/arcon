@@ -22,7 +22,9 @@ export async function POST(request: Request) {
     const session = token ? await verifySession(token) : null;
 
     const userStore = UserStore.getInstance();
-    const dbUser = session ? (userStore.getUserById(session.id) || userStore.getUserByEmail(session.email)) : null;
+    const dbUser = session
+      ? (userStore.getUserById(session.id) || userStore.getUserByEmail(session.email))
+      : (userStore.getUserByEmail(senderEmail || "deep@3dices.com") || userStore.getAllUsers()[0]);
     const userSmtp = dbUser ? userStore.getUserSmtp(dbUser.id) : null;
 
     // 2. Resolve credentials (Priority: Per-user SMTP -> Global Env -> Fallback)

@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  openwa:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openwa-gateway
+    restart: unless-stopped
+    ports:
+      - "3050:3050"
+    environment:
+      - NODE_ENV=production
+      - OPENWA_PORT=3050
+      - OPENWA_ENGINE=baileys
+      - OPENWA_STORAGE=sqlite
+      - OPENWA_CACHE=memory
+      - OPENWA_MIN_JITTER_SEC=45
+      - OPENWA_MAX_JITTER_SEC=90
+    volumes:
+      - ./data/sessions:/app/data/sessions

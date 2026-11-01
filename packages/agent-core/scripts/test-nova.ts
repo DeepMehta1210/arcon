@@ -1,7 +1,8 @@
 import {
   extractCleanTextFromHtml,
   analyzeCompanyWithNova,
-  generateBespokeEmailWithNova
+  generateBespokeEmailWithNova,
+  getActiveModelName
 } from "../src/bedrock-writer";
 
 async function runTest() {
@@ -32,13 +33,13 @@ async function runTest() {
   const cleanText = extractCleanTextFromHtml(rawHtml);
   console.log(`✓ Clean text extracted (${cleanText.length} characters)\n`);
 
-  const modelId = process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b";
-  console.log(`2. Invoking Bedrock Model (${modelId}) for company comprehension...`);
+  const activeModel = getActiveModelName();
+  console.log(`2. Invoking AI Engine (${activeModel}) for company comprehension...`);
   const analysis = await analyzeCompanyWithNova({
     companyName,
     domain,
     websiteText: cleanText,
-    modelId
+    modelId: activeModel
   });
 
   console.log("----------------- ANALYSIS RESULT -----------------");
@@ -49,14 +50,14 @@ async function runTest() {
   console.log(`Specific Hook Fact:  ${analysis.specificHookFact}`);
   console.log("---------------------------------------------------\n");
 
-  console.log(`3. Generating bespoke outreach with Bedrock (${modelId})...`);
+  console.log(`3. Generating bespoke outreach with AI Engine (${activeModel})...`);
   const draft = await generateBespokeEmailWithNova({
     companyName,
     domain,
     decisionMakerName: contactName,
     decisionMakerRole: role,
     analysis,
-    modelId
+    modelId: activeModel
   });
 
   console.log("================ GENERATED EMAIL ================");

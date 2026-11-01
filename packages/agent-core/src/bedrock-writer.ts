@@ -103,6 +103,84 @@ async function callBedrockConverse(params: {
 }
 
 /**
+ * Resolves the display name of the active AI model.
+ */
+export function getActiveModelName(requestedModelId?: string): string {
+  if (process.env.NVIDIA_API_KEY) {
+    return requestedModelId && requestedModelId.includes("/")
+      ? requestedModelId
+      : process.env.NVIDIA_MODEL_ID || "nvidia/nemotron-3.5-super-vl-120b-a12b";
+  }
+  return requestedModelId || process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b";
+}
+
+/**
+ * Dual-Engine Caller:
+ * Priority 1: NVIDIA NIM API (https://integrate.api.nvidia.com/v1) via native fetch
+ * Priority 2: AWS Bedrock Converse API (fallback)
+ */
+async function callAIEngine(params: {
+  systemPrompt: string;
+  userPrompt: string;
+  modelId?: string;
+  temperature?: number;
+  maxTokens?: number;
+}): Promise<string> {
+  const apiKey = process.env.NVIDIA_API_KEY;
+
+  if (apiKey) {
+    const nvidiaModel =
+      params.modelId && params.modelId.includes("/")
+        ? params.modelId
+        : process.env.NVIDIA_MODEL_ID || "nvidia/nemotron-3.5-super-vl-120b-a12b";
+
+    try {
+      const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: nvidiaModel,
+          messages: [
+            { role: "system", content: params.systemPrompt },
+            { role: "user", content: params.userPrompt }
+          ],
+          temperature: params.temperature ?? 0.3,
+          max_tokens: params.maxTokens ? Math.max(params.maxTokens, 4000) : 4000
+        }),
+        signal: AbortSignal.timeout(45000)
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as {
+          choices?: Array<{
+            message?: {
+              content?: string | null;
+              reasoning_content?: string | null;
+            };
+          }>;
+        };
+        const choice = data.choices?.[0]?.message;
+        const content = choice?.content?.trim() || choice?.reasoning_content?.trim();
+        if (content) {
+          return content;
+        }
+      } else {
+        const errText = await res.text();
+        console.warn(`[NVIDIA NIM] Request returned ${res.status}: ${errText}. Falling back to AWS Bedrock...`);
+      }
+    } catch (err) {
+      console.warn(`[NVIDIA NIM] Connection error: ${(err as Error).message}. Falling back to AWS Bedrock...`);
+    }
+  }
+
+  // Graceful fallback: AWS Bedrock Converse API
+  return callBedrockConverse(params);
+}
+
+/**
  * Phase 1: Reads raw website copy and extracts structured company intelligence.
  */
 export async function analyzeCompanyWithNova(params: {
@@ -139,7 +217,7 @@ Raw Website Text:
 ${websiteText.slice(0, 6000)}
 """`;
 
-  const raw = await callBedrockConverse({
+  const raw = await callAIEngine({
     systemPrompt,
     userPrompt,
     modelId,
@@ -190,32 +268,32 @@ export async function generateBespokeEmailWithNova(params: {
   const cleanCompanyName = companyName.split(/[-–|]/)[0].trim() || companyName;
 
   const systemPrompt = `You are ${senderName}, ${senderRole} at 3 Dices (https://3dices.com).
-You write authentic, high-converting B2B cold emails directly to founders, CTOs, and technical leaders.
+You write elite, high-converting B2B cold emails directly to founders, CTOs, and technical leaders adhering to the Lemlist / 13 Cold Email Breakdowns standard (scoring 90+/100).
 
-3 DICES VALUE PROPOSITIONS:
-1. AI & Autonomous Agents on Amazon Bedrock: Private VPC security, enterprise RAG, deterministic guardrails (no third-party data leakage).
-2. AWS Architecture & FinOps: Right-sizing overloaded clusters, cutting monthly AWS bills by ~40%, zero-downtime EKS migrations.
-3. DevOps & CI/CD Pipelines: Automated GitHub Actions pipelines cutting release cycles to under 10 minutes with 1-click rollback.
-4. Cloud Security & DMARC: Hardening VPC network perimeters and email authentication for SOC 2 compliance.
+CORE ARCHETYPES:
+1. FinOps / Cost Waste: Use the Vending Machine analogy (Diet Coke: $0 vs $1.50. What would you choose? Zero, right? Then why pay AWS on-demand rates when Graviton instances + compute savings plans give the exact same compute for 40% less?).
+2. Latency / TTFB Diagnostic: Highlight measured latency bottlenecks and how edge caching + connection pooling drops it below 180ms.
+3. Private Bedrock AI / RAG: Focus on the #1 failure mode in scaling LLMs—preventing customer prompts from leaking outside the VPC and preventing brittle multi-step agent crashes with deterministic guardrails.
+4. DevOps / Release Velocity: Focus on automated GitHub Actions pipelines with instant 1-step rollback cutting deployment cycles from 45m to <7m.
 
-RULES FOR OUTREACH (NEVER VIOLATE):
-- DO NOT use generic openings: NEVER say "I hope you are well", "I was really impressed by how your team [tagline]", or "In today's fast-paced world".
-- The very first sentence MUST mention a specific project, service, or fact from their website (${analysis.specificHookFact}).
-- Focus on ONE primary pain point aligned with the angle: "${analysis.recommendedAngle}".
-- Tone: Peer-to-peer, technical, humble, zero corporate buzzwords.
-- Length: STRICTLY 70-95 words total across 3 short paragraphs.
-- Call to Action: Low-pressure invitation (e.g. "Open to a 10-minute engineering chat Thursday, or could I send over our architecture checklist?").
+STRICT COLD OUTREACH RULES (LEMLIST PLAYBOOK):
+- Subject line: MUST BE STRICTLY 1 to 3 words lowercase (e.g. "cloud bill", "latency", "bedrock rag", "devops pipeline"). NEVER use prospect names or marketing pitch sentences in the subject line!
+- Opening sentence: NEVER use fake flattery or generic filler ("I hope you are well", "I was really impressed by how your team...", "In today's fast-paced world"). Start directly with the verifiable observation or the everyday analogy.
+- Sentence Color Audit: >85% about the prospect / their infrastructure. NEVER write "At 3 Dices, we partner with..." or pitch agency credentials before demonstrating value.
+- Step 1 Call to Action: NEVER ask for time, meetings, or calendar slots (NO "10-minute chat", "hop on a call", "jump on a call", "discovery call"). Ask low-friction conversation starters only (e.g. "Is this accurate for your setup?", "Am I going in the right direction?", "Want me to send the 6-point checklist over?").
 - Signature MUST end with:
 Best regards,
 ${senderName}
 ${senderRole}
 3 Dices Technology | https://3dices.com
+LinkedIn: https://linkedin.com/in/deepmehta
+PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.
 
 Format output as JSON:
 {
-  "subject": "Concise, lowercase, personalized subject line",
-  "body": "Complete email body including greeting and signature",
-  "reasoning": "Why this angle was selected for this specific company"
+  "subject": "1-3 words lowercase subject line (e.g. cloud bill)",
+  "body": "Complete email body including greeting and trust-stacked signature",
+  "reasoning": "Why this archetype and angle were selected"
 }`;
 
   const userPrompt = `Prospect:
@@ -229,7 +307,7 @@ Format output as JSON:
 
 Write the email now following all rules.`;
 
-  const raw = await callBedrockConverse({
+  const raw = await callAIEngine({
     systemPrompt,
     userPrompt,
     modelId,
@@ -240,11 +318,33 @@ Write the email now following all rules.`;
   try {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("No JSON found");
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
+    let jsonStr = jsonMatch[0];
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      jsonStr = jsonStr.replace(/(?<="[^"]*)\r?\n(?=[^"]*")/g, "\\n");
+      parsed = JSON.parse(jsonStr);
+    }
+  } catch (err) {
+    console.warn(`[PARSER WARNING] ${(err as Error).message}. Raw response was:\n`, raw);
     parsed = {
-      subject: `${firstName} - question regarding ${cleanCompanyName}'s cloud architecture`,
-      body: `Hi ${firstName},\n\nSaw ${cleanCompanyName}'s recent work on ${analysis.specificHookFact}.\n\nAt 3 Dices, we help technical founders eliminate cloud bottlenecks and deploy private AI workloads on AWS. In recent client work, we migrated an overloaded monolith to Amazon EKS with zero downtime while reducing monthly cloud spend by ~40%.\n\nWould you be open to a 10-minute engineering chat this week to see if there are quick wins for your team?\n\nBest regards,\n${senderName}\n${senderRole}\n3 Dices Technology | https://3dices.com`,
+      subject: "cloud bill",
+      body: `Hi ${firstName},
+
+You're at a vending machine. Diet Coke: $0 or $1.50. What would you choose? Zero, right?
+
+Then why pay AWS on-demand rates when Graviton instances + compute savings plans give ${cleanCompanyName} the exact same compute for 40% less?
+
+Took 2 minutes to calculate the monthly delta for your setup. 
+
+Is this accurate for your current infrastructure?
+
+Best regards,
+${senderName}
+${senderRole}
+3 Dices Technology | https://3dices.com
+LinkedIn: https://linkedin.com/in/deepmehta
+PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`,
       reasoning: "Fallback parsed"
     };
   }
@@ -262,7 +362,7 @@ Write the email now following all rules.`;
     body: probe.refinedBody || parsed.body,
     reasoning: parsed.reasoning,
     probeScore: probe.score,
-    modelUsed: modelId
+    modelUsed: getActiveModelName(modelId)
   };
 }
 
@@ -277,11 +377,13 @@ export async function probeEmailQualityWithNova(params: {
 }): Promise<{ score: number; refinedBody?: string; feedback: string }> {
   const { emailBody, specificFact, companyName, modelId = process.env.BEDROCK_MODEL_ID || "nvidia.nemotron-nano-3-30b" } = params;
 
-  const systemPrompt = `You are an ASD-STE100 and B2B cold email quality auditor.
+  const systemPrompt = `You are a B2B cold outreach auditor applying the Lemlist / 13 Cold Email Breakdowns standard (aiming for 90+/100).
 Evaluate this outreach email on a scale of 0 to 100 based on:
-1. Specificity (0-35): Does it reference real work (${specificFact}) rather than a generic template?
-2. Natural Tone (0-35): Does it sound like an experienced human engineer wrote it? (Penalty for buzzwords like "synergy", "cutting-edge", "game-changer", "dive deeper").
-3. Brevity & Clarity (0-30): Is it under 95 words with a clear, low-friction ask?
+1. Prospect-First Ratio / Color Audit (0-35): Is the email focused on the prospect's infrastructure, metrics, or an intriguing analogy rather than self-centered agency credentials ("At 3 Dices...")?
+2. Natural Tone & Zero Fluff (0-35): Does it sound like an experienced human architect wrote it? Heavy penalties for fake flattery ("impressed by your team"), corporate buzzwords, and marketing slop.
+3. Friction-Free Call to Action (0-30): Does it ask a simple, low-friction question ("Is this accurate?", "Am I going in the right direction?") instead of demanding time on a calendar ("10-minute chat")?
+
+IMPORTANT: Do not write lengthy chain-of-thought. Output the final JSON immediately.
 
 Return JSON:
 {
@@ -298,7 +400,7 @@ ${emailBody}
 """`;
 
   try {
-    const raw = await callBedrockConverse({
+    const raw = await callAIEngine({
       systemPrompt,
       userPrompt,
       modelId,
@@ -307,7 +409,14 @@ ${emailBody}
 
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) return { score: 90, feedback: "Passed baseline audit" };
-    const result = JSON.parse(jsonMatch[0]);
+    let jsonStr = jsonMatch[0];
+    let result: { score?: number; feedback?: string; needsRefinement?: boolean; refinedBody?: string };
+    try {
+      result = JSON.parse(jsonStr);
+    } catch {
+      jsonStr = jsonStr.replace(/(?<="[^"]*)\r?\n(?=[^"]*")/g, "\\n");
+      result = JSON.parse(jsonStr);
+    }
 
     return {
       score: typeof result.score === "number" ? result.score : 88,

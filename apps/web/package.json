@@ -20,7 +20,8 @@
     "@arcon/scrapers": "workspace:*",
     "@arcon/database": "workspace:*",
     "@arcon/doc-generator": "workspace:*",
-    "@arcon/outbound-email": "workspace:*"
+    "@arcon/outbound-email": "workspace:*",
+    "@arcon/outbound-wa": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

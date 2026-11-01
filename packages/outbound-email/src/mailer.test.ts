@@ -18,7 +18,7 @@ describe("Outbound Email Worker", () => {
   it("dispatches clean ASD-STE100 outreach and returns delivery receipt", async () => {
     const receipt = await dispatchColdEmail({
       toEmail: "founder@example.com",
-      subject: "Question about cloud latency",
+      subject: "cloud latency",
       body: "We noticed your recent product launch. We built a free diagnostic report. Do you want the link?",
       dryRun: true
     });
