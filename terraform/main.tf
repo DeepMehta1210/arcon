@@ -8,6 +8,11 @@ data "aws_subnets" "default" {
     name   = "vpc-id"
     values = [data.aws_vpc.default.id]
   }
+
+  filter {
+    name   = "availability-zone"
+    values = ["${var.aws_region}a", "${var.aws_region}b"]
+  }
 }
 
 # 2. Lookup Latest Official Ubuntu 24.04 LTS AMI (ARM64 or x86_64)
@@ -108,10 +113,10 @@ resource "aws_iam_role_policy_attachment" "bedrock" {
 
 # 5. EC2 Instance (Free Tier Eligible)
 resource "aws_instance" "arcon" {
-  ami                  = data.aws_ami.ubuntu.id
-  instance_type        = var.instance_type
-  subnet_id            = element(data.aws_subnets.default.ids, 0)
-  iam_instance_profile = var.iam_instance_profile
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = var.instance_type
+  subnet_id              = sort(data.aws_subnets.default.ids)[0]
+  iam_instance_profile   = var.iam_instance_profile
   vpc_security_group_ids = [aws_security_group.arcon.id]
 
   root_block_device {
