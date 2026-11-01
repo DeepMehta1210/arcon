@@ -46,11 +46,11 @@ export async function dispatchWhatsAppTouch(input: WADispatchInput): Promise<WAD
 
   // 1. Pre-send Quality Gate: Enforce clean copy & STE100 checks
   const lintResult = lintOutreachCopy(input.text, {
-    enforceSte100: input.enforceSte100 ?? false,
-    maxWordsPerSentence: 25
+    enforceSte100: input.enforceSte100 ?? true,
+    maxWordsPerSentence: 20
   });
 
-  if (!lintResult.passed && input.enforceSte100) {
+  if (!lintResult.passed) {
     return {
       receiptId,
       timestamp: now,
