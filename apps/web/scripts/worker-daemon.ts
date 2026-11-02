@@ -25,28 +25,28 @@ interface SourcingTarget {
 }
 
 const WORLDWIDE_TARGETS: SourcingTarget[] = [
-  // North America
-  { name: "San Francisco Bay Area", type: "places", city: "San Francisco", keyword: "Software Development", country: "United States" },
-  { name: "New York City", type: "places", city: "New York", keyword: "FinTech Software", country: "United States" },
-  { name: "Austin Tech Hub", type: "places", city: "Austin", keyword: "Cloud Engineering", country: "United States" },
-  { name: "Toronto Tech Sector", type: "places", city: "Toronto", keyword: "Software Engineering", country: "Canada" },
+  // North America Boutique Web & Digital Agencies
+  { name: "New York Digital Agencies", type: "places", city: "New York", keyword: "Digital Agency", country: "United States" },
+  { name: "Austin Creative Studios", type: "places", city: "Austin", keyword: "Web Development Agency", country: "United States" },
+  { name: "San Francisco Web Studios", type: "places", city: "San Francisco", keyword: "Web Design Studio", country: "United States" },
+  { name: "Toronto Digital Hub", type: "places", city: "Toronto", keyword: "Digital Agency", country: "Canada" },
 
-  // United Kingdom & Europe
-  { name: "London Tech City", type: "places", city: "London", keyword: "Cloud Consulting", country: "United Kingdom" },
-  { name: "Berlin Startup Hub", type: "places", city: "Berlin", keyword: "Software Development", country: "Germany" },
-  { name: "Amsterdam Tech Corridor", type: "places", city: "Amsterdam", keyword: "Cloud Infrastructure", country: "Netherlands" },
-  { name: "Dublin Silicon Docks", type: "places", city: "Dublin", keyword: "Software Services", country: "Ireland" },
+  // United Kingdom & Europe Creative Hubs
+  { name: "London Creative Sector", type: "places", city: "London", keyword: "Web Design Agency", country: "United Kingdom" },
+  { name: "Berlin Digital Agencies", type: "places", city: "Berlin", keyword: "Web Development Agency", country: "Germany" },
+  { name: "Amsterdam Creative Corridor", type: "places", city: "Amsterdam", keyword: "Digital Agency", country: "Netherlands" },
+  { name: "Dublin Digital Hub", type: "places", city: "Dublin", keyword: "Web Design Agency", country: "Ireland" },
 
   // Asia-Pacific & Middle East
-  { name: "Singapore Tech District", type: "places", city: "Singapore", keyword: "Cloud Computing", country: "Singapore" },
-  { name: "Sydney Tech Hub", type: "places", city: "Sydney", keyword: "Software Solutions", country: "Australia" },
-  { name: "Dubai Internet City", type: "places", city: "Dubai", keyword: "Software Development", country: "United Arab Emirates" },
-  { name: "Bangalore Tech Corridor", type: "places", city: "Bangalore", keyword: "Cloud Consulting", country: "India" },
+  { name: "Sydney Creative Hub", type: "places", city: "Sydney", keyword: "Web Design Agency", country: "Australia" },
+  { name: "Singapore Digital Studios", type: "places", city: "Singapore", keyword: "Web Design Agency", country: "Singapore" },
+  { name: "Dubai Creative District", type: "places", city: "Dubai", keyword: "Digital Marketing Agency", country: "United Arab Emirates" },
+  { name: "Mumbai Creative Agencies", type: "places", city: "Mumbai", keyword: "Web Design Agency", country: "India" },
+  { name: "Bangalore Web Studios", type: "places", city: "Bangalore", keyword: "Web Development Agency", country: "India" },
 
   // Global High-Growth Tech Accelerators & Launch Signals
-  { name: "Y Combinator W24 AI & DevTools", type: "yc", batch: "W24", keyword: "AI", country: "Global" },
-  { name: "Y Combinator S24 Cloud & B2B", type: "yc", batch: "S24", keyword: "Cloud", country: "Global" },
-  { name: "Hacker News Live Launches", type: "show_hn", keyword: "Show HN", country: "Global" }
+  { name: "Y Combinator W24 DevTools", type: "yc", batch: "W24", keyword: "Developer", country: "Global" },
+  { name: "Y Combinator S24 B2B Platforms", type: "yc", batch: "S24", keyword: "Platform", country: "Global" }
 ];
 
 let currentTargetIndex = 0;

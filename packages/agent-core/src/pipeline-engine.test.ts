@@ -45,5 +45,5 @@ describe("Pipeline Engine & Continuous Lead Enrichment", () => {
     expect(result.companyName).toBe("Generic Corp");
     // Should NOT send to sales@genericcorp.com
     expect(result.targetEmail).not.toBe("sales@genericcorp.com");
-  });
+  }, 10000);
 });

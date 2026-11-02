@@ -91,7 +91,7 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
   try {
     const url = domain.startsWith("http") ? domain : `https://${domain}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
+    const timeout = setTimeout(() => controller.abort(), 2500);
 
     const res = await fetch(url, {
       signal: controller.signal,
@@ -362,6 +362,11 @@ LinkedIn: https://linkedin.com/in/deepmehta`;
 
   // Detect specialization match:
   const textCorpus = `${brandDescription} ${cleanCompanyName} ${detectedTech.join(" ")}`.toLowerCase();
+  const isAgency =
+    /\b(agency|studios?|web\s*design|digital\s*agency|creative\s*agency|development\s*agency|interactive|software\s*house|dev\s*shop|creative\s*digital)\b/i.test(
+      textCorpus
+    );
+
   const isAiLead =
     detectedTech.some((t) =>
       ["Amazon Bedrock", "OpenAI", "Anthropic", "Claude", "LangChain", "LlamaIndex", "FastAPI"].includes(t)
@@ -373,7 +378,37 @@ LinkedIn: https://linkedin.com/in/deepmehta`;
   let subject = "";
   let body = "";
 
-  if (isAiLead) {
+  if (isAgency && isSlowLatency) {
+    // ─── ARCHETYPE 1: AGENCY CLIENT SITE SPEED (Lemlist 95/100) ───
+    subject = "site speed";
+    body = `Hi ${firstName},
+
+Inspected ${domain}'s client showcase—the design and visual branding look great.
+
+Ran a quick speed check on your live showcase URL—initial server response is currently sitting at ${latencyMs}ms from edge nodes. Under peak traffic, that delay causes bounce-offs before visitors see your work.
+
+We act as the silent AWS cloud partner for design agencies—moving client sites to edge-cached AWS infrastructure to drop load times under 450ms without touching your frontend design.
+
+Open to seeing a 60-second speed breakdown for your showcase sites?
+
+${trustSignature}
+PS: Cut page load times by 65% for an agency's 14 client sites on AWS with zero downtime.`;
+  } else if (isAgency) {
+    // ─── ARCHETYPE 2: AGENCY WHITE-LABEL CLOUD MARGIN (Lemlist 95/100) ───
+    subject = "client servers";
+    body = `Hi ${firstName},
+
+Quick question—when your team launches custom web builds for clients, who handles the AWS infrastructure and auto-scaling so servers don't crash during traffic surges?
+
+We act as the silent white-label cloud partner for boutique design agencies—managing 100% of AWS hosting, auto-scaling, and daily backups behind the scenes under your brand.
+
+Most of our partner agencies bill their clients $300/mo for managed cloud, pay us $150/mo, and pocket the margin without ever touching a server terminal.
+
+Open to seeing our 1-page agency partner breakdown?
+
+${trustSignature}
+PS: Managing 25+ agency client production workloads on AWS with 99.99% uptime.`;
+  } else if (isAiLead) {
     // ─── ARCHETYPE 1: PRIVATE ENTERPRISE AI & BEDROCK RAG (Breakdown #3 / #7) ───
     subject = "bedrock rag";
     body = `Hi ${firstName},
@@ -476,9 +511,14 @@ export function generateFollowUpEmail(params: {
   const cleanSubject = initialSubject.replace(/^re:\s*/i, "");
   const subject = `Re: ${cleanSubject}`;
 
+  let valueNote = `Took 3 minutes to put together a tailored AWS latency and compute audit for ${cleanCompanyName}.`;
+  if (/client servers|hosting margin|site speed/i.test(cleanSubject)) {
+    valueNote = `Mapped out the 1-page AWS architecture blueprint we use for agency client sites (auto-scaling ECS, CloudFront edge caching, and daily S3 snapshots).`;
+  }
+
   const body = `Hi ${firstName},
 
-Took 3 minutes to put together a tailored AWS latency and compute audit for ${cleanCompanyName}.
+${valueNote}
 
 Is this accurate for your setup, or should I share the breakdown here?
 

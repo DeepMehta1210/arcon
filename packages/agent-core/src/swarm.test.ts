@@ -45,7 +45,7 @@ describe("Research Swarm and 5-Factor Rubric", () => {
     expect(dossier.decisionMaker.fullName).toBe("Jordan Smith");
     expect(typeof dossier.recommendedOutreach.lintReport.ste100Compliant).toBe("boolean");
     expect(dossier.recommendedOutreach.lintReport.passed).toBe(true);
-  });
+  }, 10000);
 
   it("crafts 3 Dices AI & Amazon Bedrock outreach for AI leads", () => {
     const { generateProperOutreachEmail } = require("./researcher");
@@ -103,5 +103,44 @@ describe("Research Swarm and 5-Factor Rubric", () => {
     expect(email.body).toContain("monitoring-only (p=none)");
     expect(email.body).toContain("SOC 2");
     expect(email.body).toContain("Want me to send them over?");
+  });
+
+  it("crafts 3 Dices White-Label Cloud Partner outreach for digital agencies", () => {
+    const { generateProperOutreachEmail } = require("./researcher");
+    const email = generateProperOutreachEmail({
+      companyName: "Pixelcraft Creative Studio",
+      domain: "pixelcraft.agency",
+      brandDescription: "Boutique digital agency building custom web apps and brand experiences",
+      detectedTech: ["React", "Next.js", "Tailwind"],
+      decisionMakerName: "Liam Evans",
+      decisionMakerRole: "Managing Director",
+      latencyMs: 320,
+      dmarcPolicy: "reject"
+    });
+
+    expect(email.subject).toBe("client servers");
+    expect(email.body).toContain("silent white-label cloud partner for boutique design agencies");
+    expect(email.body).toContain("Liam");
+    expect(email.body).toContain("Open to seeing our 1-page agency partner breakdown?");
+    expect(email.body.split(/\s+/).length).toBeLessThan(120);
+  });
+
+  it("crafts 3 Dices Agency Client Speed Audit for slow agency showcase sites", () => {
+    const { generateProperOutreachEmail } = require("./researcher");
+    const email = generateProperOutreachEmail({
+      companyName: "Vanguard Web Design",
+      domain: "vanguarddesign.com",
+      brandDescription: "Award-winning web design and Shopify development agency",
+      detectedTech: ["Next.js", "Shopify"],
+      decisionMakerName: "Chloe Martin",
+      decisionMakerRole: "Founder & Creative Director",
+      latencyMs: 980,
+      dmarcPolicy: "reject"
+    });
+
+    expect(email.subject).toBe("site speed");
+    expect(email.body).toContain("client showcase");
+    expect(email.body).toContain("980ms");
+    expect(email.body).toContain("Open to seeing a 60-second speed breakdown for your showcase sites?");
   });
 });

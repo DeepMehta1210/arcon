@@ -220,3 +220,19 @@ export async function scrapeLocalPlaces(options: MapsScrapeOptions): Promise<Raw
 
   return leads;
 }
+
+/**
+ * Scrapes boutique digital, web design, and creative agencies in a given city.
+ */
+export async function scrapeDigitalAgencies(options: {
+  city: string;
+  keyword?: string;
+  limit?: number;
+}): Promise<RawLead[]> {
+  const keyword = options.keyword || "Web Design Agency";
+  return scrapeLocalPlaces({
+    keyword,
+    city: options.city,
+    limit: options.limit ?? 15,
+  });
+}

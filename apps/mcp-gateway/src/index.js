@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema, } from "@modelcontextprotocol/sdk/types.js";
 import { verifyEmail } from "@arcon/verifier";
 import { lintOutreachCopy } from "@arcon/copy-linter";
-import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces } from "@arcon/scrapers";
+import { searchYCCompanies, fetchShowHNSignals, scrapeLocalPlaces, importLeadsFromCsv, scrapeB2CCreator } from "@arcon/scrapers";
 import { runResearchSwarm } from "@arcon/agent-core";
 import { dispatchColdEmail } from "@arcon/outbound-email";
 import { dispatchWhatsAppTouch } from "@arcon/outbound-wa";
@@ -50,6 +50,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                         email: { type: "string", description: "Email address to verify" },
                     },
                     required: ["email"],
+                },
+            },
+            {
+                name: "growth_mine_agencies",
+                description: "Mines boutique web design, digital, and creative agencies in any city for 3 Dices white-label AWS partnership outreach.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        city: { type: "string", description: "City and region (e.g. Austin, London, New York, Mumbai)" },
+                        keyword: { type: "string", description: "Agency type (default: Web Design Agency)", default: "Web Design Agency" },
+                        limit: { type: "number", description: "Max agencies to return", default: 10 },
+                    },
+                    required: ["city"],
                 },
             },
             {
@@ -133,6 +146,37 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     required: ["domain"],
                 },
             },
+            {
+                name: "growth_import_leads_csv",
+                description: "Imports B2B lead datasets from local CSV files into standardized RawLead records.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        filePath: { type: "string", description: "Absolute path to the CSV file" },
+                        limit: { type: "number", description: "Maximum records to import", default: 50 },
+                    },
+                    required: ["filePath"],
+                },
+            },
+            {
+                name: "arcon_scrape_creator",
+                description: "Scrapes B2C creator and brand profiles across YouTube, Instagram, Linktree, and GitHub to extract verified contact info.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        platform: {
+                            type: "string",
+                            enum: ["youtube", "instagram", "linktree", "github"],
+                            description: "Target platform"
+                        },
+                        identifier: {
+                            type: "string",
+                            description: "Creator username, handle (@name), or profile URL"
+                        }
+                    },
+                    required: ["platform", "identifier"]
+                }
+            },
         ],
     };
 });
@@ -160,6 +204,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const result = await verifyEmail(email);
             return {
                 content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+            };
+        }
+        if (name === "growth_mine_agencies") {
+            const city = args?.city;
+            const keyword = args?.keyword ?? "Web Design Agency";
+            const limit = args?.limit ?? 10;
+            const agencies = await scrapeLocalPlaces({ keyword, city, limit });
+            return {
+                content: [{ type: "text", text: JSON.stringify(agencies, null, 2) }],
             };
         }
         if (name === "growth_scrape_maps") {
@@ -225,6 +278,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                     { type: "text", text: proposal.markdownDocument },
                     { type: "text", text: JSON.stringify(proposal, null, 2) },
                 ],
+            };
+        }
+        if (name === "growth_import_leads_csv" || name === "arcon_import_leads_csv") {
+            const filePath = args?.filePath;
+            const limit = args?.limit ?? 50;
+            const leads = importLeadsFromCsv(filePath, { limit });
+            return {
+                content: [{ type: "text", text: JSON.stringify(leads, null, 2) }],
+            };
+        }
+        if (name === "arcon_scrape_creator" || name === "growth_scrape_creator") {
+            const platform = args?.platform;
+            const identifier = args?.identifier;
+            const lead = await scrapeB2CCreator(platform, identifier);
+            return {
+                content: [{ type: "text", text: JSON.stringify(lead, null, 2) }],
             };
         }
         return {

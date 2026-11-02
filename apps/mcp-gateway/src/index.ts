@@ -61,6 +61,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         },
       },
       {
+        name: "growth_mine_agencies",
+        description: "Mines boutique web design, digital, and creative agencies in any city for 3 Dices white-label AWS partnership outreach.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            city: { type: "string", description: "City and region (e.g. Austin, London, New York, Mumbai)" },
+            keyword: { type: "string", description: "Agency type (default: Web Design Agency)", default: "Web Design Agency" },
+            limit: { type: "number", description: "Max agencies to return", default: 10 },
+          },
+          required: ["city"],
+        },
+      },
+      {
         name: "growth_scrape_maps",
         description: "Scrapes local business listings, contacts, and websites by keyword and city.",
         inputSchema: {
@@ -203,6 +216,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await verifyEmail(email);
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+      };
+    }
+
+    if (name === "growth_mine_agencies") {
+      const city = args?.city as string;
+      const keyword = (args?.keyword as string) ?? "Web Design Agency";
+      const limit = (args?.limit as number) ?? 10;
+      const agencies = await scrapeLocalPlaces({ keyword, city, limit });
+      return {
+        content: [{ type: "text", text: JSON.stringify(agencies, null, 2) }],
       };
     }
 
