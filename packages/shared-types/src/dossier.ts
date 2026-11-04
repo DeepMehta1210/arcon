@@ -18,7 +18,9 @@ export const ProspectDossierSchema = z.object({
         summary: z.string(),
         sourceUrl: z.string().url()
       })
-    )
+    ),
+    philosophy: z.string().optional(),
+    featuredProjects: z.array(z.string()).optional()
   }),
 
   decisionMaker: z.object({

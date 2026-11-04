@@ -6,6 +6,11 @@ import {
   researchDecisionMaker,
   generateProperOutreachEmail
 } from "./researcher";
+import {
+  analyzeCompanyWithNova,
+  generateBespokeEmailWithNova,
+  extractCleanTextFromHtml
+} from "./bedrock-writer";
 import { randomUUID } from "node:crypto";
 
 export interface SwarmResearchInput {
@@ -13,6 +18,7 @@ export interface SwarmResearchInput {
   companyName?: string;
   contactName?: string;
   observedSignal?: string;
+  useAiEngine?: boolean;
 }
 
 export async function runResearchSwarm(input: SwarmResearchInput): Promise<ProspectDossier> {
@@ -20,7 +26,7 @@ export async function runResearchSwarm(input: SwarmResearchInput): Promise<Prosp
   const domain = input.domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
   const companyName = input.companyName || domain.split(".")[0].toUpperCase();
 
-  // 1. Corporate Intel Agent: inspect website and tech stack
+  // 1. Corporate Intel Agent: inspect website, portfolio case studies, and philosophy
   const siteIntel = await scrapeCompanyWebsite(domain);
 
   // 2. Decision Maker Agent: identify executive and run socket SMTP verification
@@ -40,17 +46,78 @@ export async function runResearchSwarm(input: SwarmResearchInput): Promise<Prosp
     evidence: 80
   });
 
-  // 4. Proper B2B Outreach Email Generator (NOT ASD-STE100)
-  const properEmail = generateProperOutreachEmail({
-    companyName,
-    domain,
-    brandDescription: siteIntel.description,
-    detectedTech: siteIntel.detectedTech,
-    decisionMakerName: decisionMaker.fullName,
-    decisionMakerRole: decisionMaker.role,
-    latencyMs: siteIntel.latencyMs,
-    dmarcPolicy: siteIntel.dmarcPolicy
-  });
+  // 4. Bespoke B2B Outreach Email Generator:
+  // Tries NVIDIA NIM / AWS Bedrock LLM first for 100% human, bespoke case-study personalization.
+  // Seamlessly falls back to diagnostic rule generator if offline, in unit tests, or no API keys.
+  let properEmail: { subject: string; body: string } | undefined;
+  let modelUsed: string | undefined;
+
+  const shouldRunAi =
+    input.useAiEngine === true ||
+    (input.useAiEngine !== false && process.env.NODE_ENV !== "test");
+
+  const hasAiConfig =
+    shouldRunAi &&
+    Boolean(
+      process.env.NVIDIA_API_KEY ||
+      (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY)
+    );
+
+  if (hasAiConfig) {
+    try {
+      const cleanWebsiteText = extractCleanTextFromHtml(siteIntel.rawHtml || siteIntel.description);
+      const companyAnalysis = await analyzeCompanyWithNova({
+        companyName,
+        domain,
+        websiteText: `${siteIntel.title} ${siteIntel.description} ${siteIntel.agencyPhilosophy || ""} ${cleanWebsiteText}`
+      });
+
+      if (siteIntel.featuredProjects && siteIntel.featuredProjects.length > 0 && !companyAnalysis.featuredClientProject) {
+        companyAnalysis.featuredClientProject = siteIntel.featuredProjects[0];
+      }
+      if (siteIntel.agencyPhilosophy && !companyAnalysis.agencyPhilosophy) {
+        companyAnalysis.agencyPhilosophy = siteIntel.agencyPhilosophy;
+      }
+      if (siteIntel.agencyArchetype && !companyAnalysis.agencyArchetype) {
+        companyAnalysis.agencyArchetype = siteIntel.agencyArchetype;
+      }
+
+      const bespoke = await generateBespokeEmailWithNova({
+        companyName,
+        domain,
+        decisionMakerName: decisionMaker.fullName,
+        decisionMakerRole: decisionMaker.role,
+        analysis: companyAnalysis
+      });
+
+      if (bespoke.subject && bespoke.body) {
+        properEmail = {
+          subject: bespoke.subject,
+          body: bespoke.body
+        };
+        modelUsed = bespoke.modelUsed;
+      }
+    } catch (err) {
+      console.warn(`[Swarm] AI Bespoke writer fell back to rule-based generation: ${(err as Error).message}`);
+    }
+  }
+
+  // Graceful rule-based generator fallback
+  if (!properEmail) {
+    properEmail = generateProperOutreachEmail({
+      companyName,
+      domain,
+      brandDescription: siteIntel.description,
+      detectedTech: siteIntel.detectedTech,
+      decisionMakerName: decisionMaker.fullName,
+      decisionMakerRole: decisionMaker.role,
+      latencyMs: siteIntel.latencyMs,
+      dmarcPolicy: siteIntel.dmarcPolicy,
+      featuredProject: siteIntel.featuredProjects?.[0],
+      agencyPhilosophy: siteIntel.agencyPhilosophy,
+      agencyArchetype: siteIntel.agencyArchetype
+    });
+  }
 
   // 5. Clean copy quality gate: strips zero-width and checks slop under Lemlist playbook standards
   const lintReport = lintOutreachCopy(properEmail.body, {
@@ -73,6 +140,8 @@ export async function runResearchSwarm(input: SwarmResearchInput): Promise<Prosp
       description: siteIntel.description,
       stage: "seed",
       techStack: siteIntel.detectedTech,
+      philosophy: siteIntel.agencyPhilosophy,
+      featuredProjects: siteIntel.featuredProjects,
       recentEvents: [
         {
           type: "product_launch",

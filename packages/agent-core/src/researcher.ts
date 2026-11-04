@@ -73,6 +73,116 @@ export async function auditDomainDns(domain: string): Promise<{
   }
 }
 
+/**
+ * Extracts portfolio client case studies and featured builds from HTML.
+ */
+export function extractPortfolioProjectsFromHtml(html: string): string[] {
+  if (!html) return [];
+  const projects = new Set<string>();
+
+  // Pattern 1: Project links: /work/slug, /case-studies/slug, /projects/slug, /portfolio/slug
+  const linkMatches = html.matchAll(
+    /<a[^>]*href=["'](?:https?:\/\/[^"']+)?\/(?:work|case-studies|portfolio|projects|clients)\/([^"'\/?#]+)["'][^>]*>(.*?)<\/a>/gi
+  );
+  for (const match of linkMatches) {
+    const slug = match[1];
+    const innerText = match[2].replace(/<[^>]+>/g, "").trim();
+
+    if (
+      innerText &&
+      innerText.length >= 2 &&
+      innerText.length <= 40 &&
+      !/^(view|read|see|case|project|more|all|explore|visit|next|previous)\b/i.test(innerText)
+    ) {
+      projects.add(innerText);
+    } else if (
+      slug &&
+      slug.length >= 3 &&
+      slug.length <= 35 &&
+      !/^(all|index|page|tag|category|archive)$/i.test(slug)
+    ) {
+      const formatted = slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      projects.add(formatted);
+    }
+    if (projects.size >= 4) break;
+  }
+
+  // Pattern 2: Headings inside case study or project containers
+  const headingMatches = html.matchAll(
+    /<(?:h2|h3|h4)[^>]*class=["'][^"']*(?:project|case-study|portfolio|client|card-title)[^"']*["'][^>]*>([^<]+)<\/(?:h2|h3|h4)>/gi
+  );
+  for (const match of headingMatches) {
+    const title = match[1].trim();
+    if (
+      title.length >= 2 &&
+      title.length <= 40 &&
+      !/^(our work|recent work|case studies|selected projects|featured work|latest work)$/i.test(title)
+    ) {
+      projects.add(title);
+    }
+    if (projects.size >= 4) break;
+  }
+
+  return Array.from(projects).slice(0, 3);
+}
+
+/**
+ * Extracts agency philosophy / manifesto / mission statement from HTML.
+ */
+export function extractAgencyPhilosophyFromHtml(html: string): string | undefined {
+  if (!html) return undefined;
+
+  // Pattern 1: Philosophy / Manifesto / About headings followed by paragraph
+  const sectionMatch = html.match(
+    /<(?:h1|h2|h3|h4)[^>]*>(?:About(?:\s+Us)?|Our Philosophy|Philosophy|Manifesto|Our Approach|What We Believe|Our Mission|The Studio|Our Ethos|Craft)<\/(?:h1|h2|h3|h4)>\s*<(?:p|div)[^>]*>([^<]{25,350})<\/(?:p|div)>/i
+  );
+  if (sectionMatch && sectionMatch[1]) {
+    return sectionMatch[1].replace(/\s+/g, " ").trim();
+  }
+
+  // Pattern 2: Elements with manifesto / philosophy class
+  const classMatch = html.match(
+    /<(?:p|div)[^>]*class=["'][^"']*(?:manifesto|philosophy|ethos|mission-statement)[^"']*["'][^>]*>([^<]{25,350})<\/(?:p|div)>/i
+  );
+  if (classMatch && classMatch[1]) {
+    return classMatch[1].replace(/\s+/g, " ").trim();
+  }
+
+  return undefined;
+}
+
+/**
+ * Classifies the agency archetype based on text corpus.
+ */
+export function classifyAgencyArchetype(
+  textCorpus: string
+): "creative_studio" | "dev_shop" | "ecommerce_shopify" | "wordpress_content" | undefined {
+  const lower = textCorpus.toLowerCase();
+  const isAgency = /\b(agency|studios?|web\s*design|digital\s*agency|creative\s*agency|development\s*agency|dev\s*shop|interactive)\b/i.test(
+    lower
+  );
+  if (!isAgency) return undefined;
+
+  if (/\b(shopify|shopify\s*plus|e-?commerce|dtc|d2c|conversion\s*rate|checkout|klaviyo|cart)\b/i.test(lower)) {
+    return "ecommerce_shopify";
+  }
+  if (
+    /\b(3d|webgl|interactive|motion\s*design|art\s*direction|digital\s*experience|awwwards|immersive|sensory|aesthetic)\b/i.test(
+      lower
+    )
+  ) {
+    return "creative_studio";
+  }
+  if (/\b(wordpress|elementor|wp\s*engine|cms\s*development|web\s*maintenance|managed\s*hosting)\b/i.test(lower)) {
+    return "wordpress_content";
+  }
+  if (/\b(custom\s*software|web\s*apps?|full\s*stack|next\.js|engineering|backend|api|headless|cloud\s*architecture|saas)\b/i.test(lower)) {
+    return "dev_shop";
+  }
+
+  return "creative_studio";
+}
+
 export async function scrapeCompanyWebsite(domain: string): Promise<{
   title: string;
   description: string;
@@ -84,6 +194,9 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
   diagnosticPainPoint: string;
   rawHtml?: string;
   linkedInUrl?: string;
+  featuredProjects?: string[];
+  agencyPhilosophy?: string;
+  agencyArchetype?: "creative_studio" | "dev_shop" | "ecommerce_shopify" | "wordpress_content";
 }> {
   const dnsIntel = await auditDomainDns(domain);
   const start = Date.now();
@@ -133,6 +246,12 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
     const linkedInMatch = html.match(/https?:\/\/(www\.)?linkedin\.com\/(in|company)\/[a-zA-Z0-9_-]+/i);
     const linkedInUrl = linkedInMatch ? linkedInMatch[0] : undefined;
 
+    // Deep Agency & Portfolio Extraction
+    const featuredProjects = extractPortfolioProjectsFromHtml(html);
+    const agencyPhilosophy = extractAgencyPhilosophyFromHtml(html);
+    const textCorpus = `${title} ${description} ${heroHeadline} ${html.slice(0, 3000)}`;
+    const agencyArchetype = classifyAgencyArchetype(textCorpus);
+
     // Formulate real diagnostic pain point
     let diagnosticPainPoint = `Cloud architecture using ${detectedTech.slice(0, 2).join(" and ") || "modern stack"}.`;
     if (dnsIntel.dmarcPolicy === "none" || dnsIntel.dmarcPolicy === "missing") {
@@ -151,7 +270,10 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
       mailProvider: dnsIntel.mailProvider,
       diagnosticPainPoint,
       rawHtml: html,
-      linkedInUrl
+      linkedInUrl,
+      featuredProjects,
+      agencyPhilosophy,
+      agencyArchetype
     };
   } catch {
     const latencyMs = Date.now() - start;
@@ -165,7 +287,10 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
       mailProvider: dnsIntel.mailProvider,
       diagnosticPainPoint: "Server latency and security posture have optimization potential.",
       rawHtml: "",
-      linkedInUrl: undefined
+      linkedInUrl: undefined,
+      featuredProjects: [],
+      agencyPhilosophy: undefined,
+      agencyArchetype: undefined
     };
   }
 }
@@ -332,6 +457,9 @@ export function generateProperOutreachEmail(params: {
   dmarcPolicy: string;
   senderName?: string;
   senderRole?: string;
+  featuredProject?: string;
+  agencyPhilosophy?: string;
+  agencyArchetype?: "creative_studio" | "dev_shop" | "ecommerce_shopify" | "wordpress_content";
 }): { subject: string; body: string } {
   const {
     companyName,
@@ -342,7 +470,10 @@ export function generateProperOutreachEmail(params: {
     latencyMs,
     dmarcPolicy,
     senderName = "Deep Mehta",
-    senderRole = "AWS Certified Solutions Architect – Professional | Founder"
+    senderRole = "AWS Certified Solutions Architect – Professional | Founder",
+    featuredProject,
+    agencyPhilosophy,
+    agencyArchetype
   } = params;
 
   // Capitalize first name properly
@@ -363,6 +494,7 @@ LinkedIn: https://linkedin.com/in/deepmehta`;
   // Detect specialization match:
   const textCorpus = `${brandDescription} ${cleanCompanyName} ${detectedTech.join(" ")}`.toLowerCase();
   const isAgency =
+    Boolean(agencyArchetype) ||
     /\b(agency|studios?|web\s*design|digital\s*agency|creative\s*agency|development\s*agency|interactive|software\s*house|dev\s*shop|creative\s*digital)\b/i.test(
       textCorpus
     );
@@ -378,12 +510,27 @@ LinkedIn: https://linkedin.com/in/deepmehta`;
   let subject = "";
   let body = "";
 
-  if (isAgency && isSlowLatency) {
+  if (agencyArchetype === "ecommerce_shopify") {
+    // ─── ARCHETYPE: E-COMMERCE / SHOPIFY AGENCY (Lemlist 95/100) ───
+    subject = "checkout speed";
+    body = `Hi ${firstName},
+
+Noticed ${featuredProject ? `your recent launch for ${featuredProject}` : `the high-converting e-commerce builds from ${cleanCompanyName}`}.
+
+When clients run heavy paid ad bursts or flash sales, unoptimized origin caching and database locks are usually what slow down checkout speed and depress conversion.
+
+We partner with e-commerce agencies behind the scenes—hardening AWS auto-scaling and CDN edge layers so client stores hold sub-350ms response times under peak ad traffic.
+
+Am I going in the right direction for your client setups?
+
+${trustSignature}
+PS: Zero database bottlenecks during an 80,000 req/min flash sale on AWS last quarter.`;
+  } else if (isAgency && isSlowLatency) {
     // ─── ARCHETYPE 1: AGENCY CLIENT SITE SPEED (Lemlist 95/100) ───
     subject = "site speed";
     body = `Hi ${firstName},
 
-Inspected ${domain}'s client showcase—the design and visual branding look great.
+Inspected ${featuredProject ? `your recent build for ${featuredProject}` : `${domain}'s client showcase`}—the design and visual branding look great.
 
 Ran a quick speed check on your live showcase URL—initial server response is currently sitting at ${latencyMs}ms from edge nodes. Under peak traffic, that delay causes bounce-offs before visitors see your work.
 
@@ -393,6 +540,19 @@ Open to seeing a 60-second speed breakdown for your showcase sites?
 
 ${trustSignature}
 PS: Cut page load times by 65% for an agency's 14 client sites on AWS with zero downtime.`;
+  } else if (isAgency && agencyArchetype === "wordpress_content") {
+    // ─── ARCHETYPE: WORDPRESS / CONTENT AGENCY (Lemlist 95/100) ───
+    subject = "hosting margin";
+    body = `Hi ${firstName},
+
+Quick question—when your team launches web builds${featuredProject ? ` like ${featuredProject}` : ""}, do you hand clients off to shared hosting, or do you bill them monthly for managed infrastructure?
+
+Most partner agencies bill their clients $250 to $400/mo for managed cloud, pay us $125/mo to manage the AWS infrastructure invisibly under their brand, and pocket the recurring margin without ever opening an SSH terminal.
+
+Open to seeing how our agency white-label model works?
+
+${trustSignature}
+PS: Partner agencies average $3,200/mo in pure hosting margin on AWS with zero developer overhead.`;
   } else if (isAgency) {
     // ─── ARCHETYPE 2: AGENCY WHITE-LABEL CLOUD MARGIN (Lemlist 95/100) ───
     subject = "client servers";

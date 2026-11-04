@@ -143,4 +143,80 @@ describe("Research Swarm and 5-Factor Rubric", () => {
     expect(email.body).toContain("980ms");
     expect(email.body).toContain("Open to seeing a 60-second speed breakdown for your showcase sites?");
   });
+
+  it("extracts case studies and agency philosophy from HTML", () => {
+    const {
+      extractPortfolioProjectsFromHtml,
+      extractAgencyPhilosophyFromHtml,
+      classifyAgencyArchetype
+    } = require("./researcher");
+
+    const sampleHtml = `
+      <html>
+        <head><title>Velour Digital | Luxury E-Commerce & Shopify Agency</title></head>
+        <body>
+          <h2>Our Philosophy</h2>
+          <p>We build obsessively fast, high-converting digital flagships for discerning luxury brands.</p>
+          <div class="portfolio">
+            <a href="/case-studies/maison-aurora">Maison Aurora</a>
+            <a href="/work/atelier-nord">Atelier Nord</a>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const projects = extractPortfolioProjectsFromHtml(sampleHtml);
+    expect(projects).toContain("Maison Aurora");
+    expect(projects).toContain("Atelier Nord");
+
+    const philosophy = extractAgencyPhilosophyFromHtml(sampleHtml);
+    expect(philosophy).toContain("high-converting digital flagships");
+
+    const archetype = classifyAgencyArchetype(sampleHtml);
+    expect(archetype).toBe("ecommerce_shopify");
+  });
+
+  it("crafts bespoke E-Commerce / Shopify Agency outreach with client project", () => {
+    const { generateProperOutreachEmail } = require("./researcher");
+    const email = generateProperOutreachEmail({
+      companyName: "Velour Digital",
+      domain: "velourdigital.com",
+      brandDescription: "High-end Shopify Plus e-commerce agency",
+      detectedTech: ["Shopify", "Liquid", "React"],
+      decisionMakerName: "Siddharth Rao",
+      decisionMakerRole: "Managing Director",
+      latencyMs: 350,
+      dmarcPolicy: "reject",
+      agencyArchetype: "ecommerce_shopify",
+      featuredProject: "Maison Aurora"
+    });
+
+    expect(email.subject).toBe("checkout speed");
+    expect(email.body).toContain("Maison Aurora");
+    expect(email.body).toContain("database locks");
+    expect(email.body).toContain("Am I going in the right direction for your client setups?");
+    expect(email.body).toContain("Siddharth");
+  });
+
+  it("crafts bespoke WordPress / Content Agency outreach with hosting margin angle", () => {
+    const { generateProperOutreachEmail } = require("./researcher");
+    const email = generateProperOutreachEmail({
+      companyName: "Summit Web Solutions",
+      domain: "summitweb.co.uk",
+      brandDescription: "WordPress and digital marketing agency for mid-market brands",
+      detectedTech: ["WordPress", "PHP", "MySQL"],
+      decisionMakerName: "Oliver Wright",
+      decisionMakerRole: "Founder",
+      latencyMs: 410,
+      dmarcPolicy: "reject",
+      agencyArchetype: "wordpress_content",
+      featuredProject: "Apex Living"
+    });
+
+    expect(email.subject).toBe("hosting margin");
+    expect(email.body).toContain("Apex Living");
+    expect(email.body).toContain("$250 to $400/mo");
+    expect(email.body).toContain("Open to seeing how our agency white-label model works?");
+    expect(email.body).toContain("Oliver");
+  });
 });
