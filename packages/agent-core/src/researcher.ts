@@ -183,6 +183,21 @@ export function classifyAgencyArchetype(
   return "creative_studio";
 }
 
+export function isParkedOrDeadDomain(html: string): boolean {
+  if (!html || html.trim().length < 80) return true;
+  const lower = html.toLowerCase();
+  return (
+    lower.includes("buy this domain") ||
+    lower.includes("domain is for sale") ||
+    lower.includes("parked free, courtesy of godaddy") ||
+    lower.includes("this domain is parked") ||
+    lower.includes("domain parking") ||
+    lower.includes("sedo parking") ||
+    lower.includes("namecheap parking") ||
+    (lower.includes("under construction") && html.length < 600)
+  );
+}
+
 export async function scrapeCompanyWebsite(domain: string): Promise<{
   title: string;
   description: string;
@@ -197,6 +212,7 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
   featuredProjects?: string[];
   agencyPhilosophy?: string;
   agencyArchetype?: "creative_studio" | "dev_shop" | "ecommerce_shopify" | "wordpress_content";
+  isDeadOrParked?: boolean;
 }> {
   const dnsIntel = await auditDomainDns(domain);
   const start = Date.now();
@@ -216,6 +232,8 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const html = await res.text();
 
+    const isDeadOrParked = isParkedOrDeadDomain(html);
+
     // Extract title
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
     const title = titleMatch ? titleMatch[1].trim() : domain;
@@ -228,28 +246,56 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
     const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
     const heroHeadline = h1Match ? h1Match[1].trim().replace(/\s+/g, " ") : "";
 
+    // Deep Subpage Crawler: if no case studies or team on homepage, fetch /about or /team or /work
+    let extendedHtml = html;
+    let featuredProjects = extractPortfolioProjectsFromHtml(html);
+    let agencyPhilosophy = extractAgencyPhilosophyFromHtml(html);
+
+    if (featuredProjects.length === 0 || !html.match(/(?:founder|ceo|managing director|creative director)/i)) {
+      const subLinkMatch = html.match(/href=["'](\/(?:about|team|people|our-team|who-we-are|work|case-studies))["']/i);
+      if (subLinkMatch && subLinkMatch[1]) {
+        try {
+          const subUrl = new URL(subLinkMatch[1], url).toString();
+          const subRes = await fetch(subUrl, {
+            signal: AbortSignal.timeout(1500),
+            headers: { "User-Agent": "arcon-researcher/1.0" }
+          });
+          if (subRes.ok) {
+            const subText = await subRes.text();
+            extendedHtml += " " + subText;
+            if (featuredProjects.length === 0) {
+              const subProjects = extractPortfolioProjectsFromHtml(subText);
+              featuredProjects.push(...subProjects);
+            }
+            if (!agencyPhilosophy) {
+              agencyPhilosophy = extractAgencyPhilosophyFromHtml(subText);
+            }
+          }
+        } catch {
+          // ignore subpage timeout
+        }
+      }
+    }
+
     // Detect tech stack
     const detectedTech: string[] = [];
     for (const tech of TECH_KEYWORDS) {
-      if (new RegExp(`\\b${tech}\\b`, "i").test(html)) {
+      if (new RegExp(`\\b${tech}\\b`, "i").test(extendedHtml)) {
         detectedTech.push(tech);
       }
     }
 
     // Extract emails
-    const emailMatches = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
+    const emailMatches = extendedHtml.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
     const extractedEmails = Array.from(new Set(emailMatches)).filter(
       (e) => !e.endsWith(".png") && !e.includes("wix") && !e.includes("sentry") && !e.includes("example.com")
     );
 
     // Extract social profiles
-    const linkedInMatch = html.match(/https?:\/\/(www\.)?linkedin\.com\/(in|company)\/[a-zA-Z0-9_-]+/i);
+    const linkedInMatch = extendedHtml.match(/https?:\/\/(www\.)?linkedin\.com\/(in|company)\/[a-zA-Z0-9_-]+/i);
     const linkedInUrl = linkedInMatch ? linkedInMatch[0] : undefined;
 
-    // Deep Agency & Portfolio Extraction
-    const featuredProjects = extractPortfolioProjectsFromHtml(html);
-    const agencyPhilosophy = extractAgencyPhilosophyFromHtml(html);
-    const textCorpus = `${title} ${description} ${heroHeadline} ${html.slice(0, 3000)}`;
+    const textCorpus = `${title} ${description} ${heroHeadline} ${extendedHtml.slice(0, 4000)}`;
     const agencyArchetype = classifyAgencyArchetype(textCorpus);
 
     // Formulate real diagnostic pain point
@@ -269,11 +315,12 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
       dmarcPolicy: dnsIntel.dmarcPolicy,
       mailProvider: dnsIntel.mailProvider,
       diagnosticPainPoint,
-      rawHtml: html,
+      rawHtml: extendedHtml,
       linkedInUrl,
       featuredProjects,
       agencyPhilosophy,
-      agencyArchetype
+      agencyArchetype,
+      isDeadOrParked
     };
   } catch {
     const latencyMs = Date.now() - start;
@@ -290,7 +337,8 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
       linkedInUrl: undefined,
       featuredProjects: [],
       agencyPhilosophy: undefined,
-      agencyArchetype: undefined
+      agencyArchetype: undefined,
+      isDeadOrParked: true
     };
   }
 }

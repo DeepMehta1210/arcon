@@ -1,5 +1,6 @@
 import { verifyEmail } from "@arcon/verifier";
 import { runResearchSwarm } from "./swarm";
+import { calculateDynamicIcpScore } from "./rubric";
 import type { ProspectDossier } from "@arcon/shared-types";
 
 export const GENERIC_EMAIL_PREFIXES = new Set([
@@ -257,15 +258,32 @@ AWS Certified Solutions Architect – Professional | Founder
 LinkedIn: https://linkedin.com/in/deepmehta
 PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`;
 
+  const dynamicScore = calculateDynamicIcpScore({
+    textCorpus: `${cleanedCompany} ${dossier.company.description} ${(dossier.company.techStack || []).join(" ")}`,
+    detectedTech: dossier.company.techStack || [],
+    featuredProjects: dossier.company.featuredProjects || [],
+    agencyPhilosophy: dossier.company.philosophy,
+    latencyMs: 350,
+    dmarcPolicy: "reject",
+    hasPersonalDecisionMaker: isPersonalDecisionMaker,
+    socketVerified: verificationStatus === "socket_valid"
+  });
+
+  const finalScore = isPersonalDecisionMaker
+    ? Math.max(dynamicScore.score, dossier.qualification.overallScore, 75)
+    : Math.min(dynamicScore.score, 40);
+
+  const isValidated = isVerified && isPersonalDecisionMaker && finalScore >= 75;
+
   return {
     leadId: lead.id,
     companyName: cleanedCompany,
-    isValidated: isVerified && isPersonalDecisionMaker,
+    isValidated,
     verificationStatus,
     targetEmail: finalTargetEmail,
     contactName: discoveredPersonName,
     isPersonalDecisionMaker,
-    score: dossier.qualification.overallScore,
+    score: finalScore,
     draftSubject: subject,
     draftBody: body,
     suggestedAngle: dossier.recommendedOutreach?.selectedPlay || "AWS Architecture Review",

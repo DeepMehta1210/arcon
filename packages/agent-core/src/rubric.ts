@@ -17,6 +17,117 @@ export interface RubricEvaluation {
   rejectionReason?: string;
 }
 
+export const NEGATIVE_INDUSTRY_REGEX =
+  /\b(print\s*shop|printers?|printing|stationery|signage|signs?|banner|banners|photocopy|copier|wedding\s*invitations?|car\s*wrap|vehicle\s*wrap|hardware\s*repair|phone\s*repair|mobile\s*repair|appliance\s*repair|commercial\s*cleaning|plumbing|roofing|construction|tailoring|dry\s*cleaning|laundry)\b/i;
+
+export interface DynamicScoringParams {
+  companyName: string;
+  description: string;
+  detectedTech: string[];
+  featuredProjects?: string[];
+  agencyPhilosophy?: string;
+  latencyMs: number;
+  dmarcPolicy: string;
+  hasPersonalDecisionMaker: boolean;
+  socketVerified: boolean;
+  rawHtml?: string;
+}
+
+/**
+ * Calculates a strict, dynamic 0-100 ICP qualification score based on verifiable signals.
+ * Minimum threshold to qualify for cold outreach is 75/100.
+ */
+export function calculateDynamicIcpScore(params: {
+  textCorpus: string;
+  detectedTech: string[];
+  featuredProjects?: string[];
+  agencyPhilosophy?: string;
+  latencyMs: number;
+  dmarcPolicy: string;
+  hasPersonalDecisionMaker: boolean;
+  socketVerified: boolean;
+}): { score: number; passed: boolean; rejectionReason?: string; breakdown: Record<string, number> } {
+  const {
+    textCorpus,
+    detectedTech,
+    featuredProjects = [],
+    agencyPhilosophy,
+    latencyMs,
+    dmarcPolicy,
+    hasPersonalDecisionMaker,
+    socketVerified
+  } = params;
+
+  // 1. Negative Industry Immediate Disqualification
+  if (NEGATIVE_INDUSTRY_REGEX.test(textCorpus)) {
+    return {
+      score: 20,
+      passed: false,
+      rejectionReason: "Negative industry match: Business is print, signage, hardware repair, or non-digital trade.",
+      breakdown: { icp: 0, caseStudies: 0, diagnostic: 0, reachability: 20 }
+    };
+  }
+
+  // 2. Strict Human Decision Maker Requirement
+  if (!hasPersonalDecisionMaker) {
+    return {
+      score: 35,
+      passed: false,
+      rejectionReason: "No verified personal founder or executive identified (generic inbox only).",
+      breakdown: { icp: 20, caseStudies: 5, diagnostic: 10, reachability: 0 }
+    };
+  }
+
+  // 3. ICP Capabilities & Tech Stack (0 to 35 points)
+  let icpScore = 10;
+  const isAgency = /\b(agency|studios?|web\s*design|digital\s*agency|creative\s*agency|development\s*agency|dev\s*shop|interactive)\b/i.test(
+    textCorpus
+  );
+  if (isAgency) icpScore += 10;
+
+  const modernTechCount = detectedTech.filter((t) =>
+    ["React", "Next.js", "TypeScript", "Node.js", "WordPress", "Shopify", "AWS", "Python", "Docker"].includes(t)
+  ).length;
+  icpScore += Math.min(modernTechCount * 5, 15);
+
+  // 4. Case Studies & Stated Philosophy Proof (0 to 25 points)
+  let proofScore = 0;
+  if (featuredProjects.length > 0) proofScore += 15;
+  if (agencyPhilosophy) proofScore += 10;
+
+  // 5. Verifiable Infrastructure Diagnostic Signals (0 to 20 points)
+  let diagnosticScore = 0;
+  if (latencyMs > 600) diagnosticScore += 10; // Measurable site speed optimization angle
+  if (dmarcPolicy === "none" || dmarcPolicy === "missing") diagnosticScore += 10; // Security advisory angle
+
+  // 6. Reachability & Direct Socket Verification (0 to 20 points)
+  let reachabilityScore = 0;
+  if (socketVerified) reachabilityScore += 20;
+  else if (hasPersonalDecisionMaker) reachabilityScore += 10;
+
+  const totalScore = Math.min(icpScore + proofScore + diagnosticScore + reachabilityScore, 100);
+  const passed = totalScore >= 75 && hasPersonalDecisionMaker;
+
+  let rejectionReason: string | undefined;
+  if (!passed) {
+    if (totalScore < 75) {
+      rejectionReason = `Total score (${totalScore}/100) below strict quality threshold of 75.`;
+    }
+  }
+
+  return {
+    score: totalScore,
+    passed,
+    rejectionReason,
+    breakdown: {
+      icp: icpScore,
+      caseStudies: proofScore,
+      diagnostic: diagnosticScore,
+      reachability: reachabilityScore
+    }
+  };
+}
+
 export function evaluate5FactorRubric(input: RubricInput): RubricEvaluation {
   // Weights: Pain 25%, Fit 25%, Timing 20%, Reachability 15%, Evidence 15%
   const painWeighted = input.painStrength * 0.25;

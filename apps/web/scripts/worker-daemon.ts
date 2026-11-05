@@ -144,9 +144,11 @@ async function runEnrichmentCycle() {
         const isReadyForSales =
           (enriched.verificationStatus === "socket_valid" || enriched.verificationStatus === "catch_all") &&
           enriched.isPersonalDecisionMaker &&
-          Boolean(enriched.targetEmail);
+          Boolean(enriched.targetEmail) &&
+          enriched.score >= 75;
 
-        const nextStage = isReadyForSales ? "researched" : "sourced";
+        // If not qualified, mark as disqualified so it is filtered out and the queue moves to fresh leads
+        const nextStage = isReadyForSales ? "researched" : "disqualified";
 
         store.updateLead(lead.id, {
           companyName: enriched.companyName || cleanCompanyName(lead.companyName),
