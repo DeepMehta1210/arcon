@@ -26,7 +26,12 @@ import {
   Key,
   X,
   MessageSquare,
-  Phone
+  Phone,
+  Target,
+  Pause,
+  UserCheck,
+  Building2,
+  Calendar
 } from "lucide-react";
 
 export interface StoredLead {
@@ -45,10 +50,17 @@ export interface StoredLead {
     rawAddress?: string;
   };
   socialUrls: Record<string, string>;
-  stage: "sourced" | "verified" | "researched" | "contacted" | "replied";
+  stage: "sourced" | "verified" | "researched" | "contacted" | "replied" | "disqualified";
   score: number;
   verificationStatus?: "unverified" | "socket_valid" | "socket_invalid" | "catch_all";
   notes?: string;
+  assignedTo?: string;
+  crmNotes?: Array<{
+    id: string;
+    author: string;
+    text: string;
+    createdAt: string;
+  }>;
   signalData?: Record<string, unknown>;
 }
 
@@ -163,6 +175,55 @@ export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
   return hasDraft;
 }
 
+export const ANGLE_PRESETS = [
+  {
+    id: "site_speed",
+    name: "⚡ Site Speed & TTFB",
+    badge: "Creative Studios",
+    getSubject: (lead: StoredLead) => `Question regarding ${cleanCompanyName(lead.companyName)}'s site latency`,
+    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
+      const name = lead.contactName?.split(" ")[0] || "there";
+      const company = cleanCompanyName(lead.companyName);
+      return `Hi ${name},\n\nRan a quick benchmark on ${company}'s digital showcase—noticeable initial server latency during peak hours.\n\nAt 3 Dices, we serve as the silent cloud partner for boutique design agencies. We optimize Edge CDN and AWS caching so your client builds pass Core Web Vitals with sub-100ms TTFB without changing your front-end stack.\n\nOpen to a 10-minute chat this Thursday to see how we back other design studios?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
+    }
+  },
+  {
+    id: "aws_margin",
+    name: "💰 40% AWS Margin",
+    badge: "Dev Shops",
+    getSubject: (lead: StoredLead) => `White-label cloud infrastructure for ${cleanCompanyName(lead.companyName)}'s clients`,
+    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
+      const name = lead.contactName?.split(" ")[0] || "there";
+      const company = cleanCompanyName(lead.companyName);
+      return `Hi ${name},\n\nMost agencies we speak with bill clients for hosting/maintenance but lose 30-40% of their margin to unoptimized on-demand AWS server spend.\n\nAt 3 Dices, we handle AWS architecture, autoscaling, and 24/7 DevOps under your agency's brand—allowing you to offer enterprise SLA hosting retainers without hiring a dedicated $160k cloud engineer.\n\nWould you be open to a quick 10-minute intro this week to explore a white-label partnership?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
+    }
+  },
+  {
+    id: "ecommerce_surge",
+    name: "🛒 E-Commerce Surge",
+    badge: "Shopify / WooCommerce",
+    getSubject: (lead: StoredLead) => `Black Friday & traffic surge protection for ${cleanCompanyName(lead.companyName)}'s stores`,
+    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
+      const name = lead.contactName?.split(" ")[0] || "there";
+      const company = cleanCompanyName(lead.companyName);
+      return `Hi ${name},\n\nFor high-volume client stores, a 2-second slowdown during a marketing campaign cuts conversions by 26%.\n\nAt 3 Dices, we act as the silent backend partner for e-commerce studios—hardening database queries, autoscaling Redis/Aurora clusters, and guaranteeing zero crash cutovers under sudden 10x traffic spikes.\n\nWorth a quick 10-minute call this Thursday to see if we can support your upcoming client launches?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
+    }
+  },
+  {
+    id: "security_sla",
+    name: "🛡️ Enterprise SLA & DMARC",
+    badge: "Enterprise / Gov",
+    getSubject: (lead: StoredLead) => `Security audit & SLA guarantee for ${cleanCompanyName(lead.companyName)}`,
+    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
+      const name = lead.contactName?.split(" ")[0] || "there";
+      const company = cleanCompanyName(lead.companyName);
+      return `Hi ${name},\n\nNotice ${company} is delivering high-end digital platforms for ambitious brands.\n\nWhen winning larger enterprise clients, SOC2 compliance, ISO 27001 posture, and strict 99.99% uptime SLAs often become the deciding factor.\n\nAt 3 Dices, we provide white-label enterprise cloud compliance, automated Terraform infrastructure, and 24/7 incident response so your agency can win and retain tier-1 contracts with confidence.\n\nWould you have 10 minutes this Thursday for a brief introduction?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
+    }
+  }
+];
+
+const DAILY_BATCH_TARGET = 25;
+
 interface SalesReviewViewProps {
   currentUser?: {
     id: string;
@@ -175,19 +236,34 @@ interface SalesReviewViewProps {
 }
 
 export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesReviewViewProps) {
-  // Filter leads ready for sales review: Must be personal decision maker (no generic sales@ or info@)
-  const readyLeads = useMemo(() => {
-    return leads.filter(isLeadReadyForSalesReview);
+  // Mode: "today" (Curated daily 25) vs "backlog" (Full qualified pool)
+  const [viewMode, setViewMode] = useState<"today" | "backlog">("today");
+
+  // Filter leads ready for sales review
+  const allQualifiedLeads = useMemo(() => {
+    return [...leads.filter(isLeadReadyForSalesReview)].sort((a, b) => (b.score || 0) - (a.score || 0));
   }, [leads]);
 
+  // Today's Curated Batch (Capped at 25 leads)
+  const todayBatchLeads = useMemo(() => {
+    return allQualifiedLeads.slice(0, DAILY_BATCH_TARGET);
+  }, [allQualifiedLeads]);
+
+  // Leads contacted today
+  const contactedTodayCount = useMemo(() => {
+    return leads.filter((l) => l.stage === "contacted").length;
+  }, [leads]);
+
+  const activeQueue = viewMode === "today" ? todayBatchLeads : allQualifiedLeads;
+
   const [currentIndex, setCurrentIndex] = useState(0);
-  const currentLead = readyLeads[currentIndex] || null;
+  const currentLead = activeQueue[currentIndex] || null;
 
   // Editable email state
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [targetEmail, setTargetEmail] = useState("");
-  const [senderEmail, setSenderEmail] = useState(currentUser?.email || "deep@3dices.com");
+  const [selectedAngleId, setSelectedAngleId] = useState<string>("site_speed");
 
   // Status feedback
   const [sending, setSending] = useState(false);
@@ -248,22 +324,39 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
     totalLeadsVerifiedForSales: number;
   } | null>(null);
 
-  useEffect(() => {
-    const fetchWorker = async () => {
-      try {
-        const res = await fetch("/api/pipeline/worker-status");
-        const data = await res.json();
-        if (data.success && data.worker) {
-          setWorkerStatus(data.worker);
-        }
-      } catch {
-        // quiet ignore
+  const fetchWorkerStatus = async () => {
+    try {
+      const res = await fetch("/api/pipeline/worker-status");
+      const data = await res.json();
+      if (data.success && data.worker) {
+        setWorkerStatus(data.worker);
       }
-    };
-    fetchWorker();
-    const interval = setInterval(fetchWorker, 10000);
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchWorkerStatus();
+    const interval = setInterval(fetchWorkerStatus, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // Toggle Autopilot
+  const handleToggleAutopilot = async () => {
+    try {
+      const action = workerStatus?.isActive ? "pause" : "resume";
+      const res = await fetch("/api/pipeline/worker-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      if (data.success && data.worker) {
+        setWorkerStatus(data.worker);
+      }
+    } catch (err) {
+      console.error("Failed to toggle autopilot:", err);
+    }
+  };
 
   // Synchronize form when selected lead changes
   useEffect(() => {
@@ -279,28 +372,13 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
       const initialSubject =
         draft?.subject ||
         dossier?.recommendedOutreach?.tailoredSubject ||
-        "cloud bill";
+        `White-label AWS architecture partner for ${cleanName}`;
 
       const initialBody =
         draft?.body ||
         currentLead.notes ||
         dossier?.recommendedOutreach?.tailoredBody ||
-        `Hi ${firstName || "there"},
-
-You're at a vending machine. Diet Coke: $0 or $1.50. What would you choose? Zero, right?
-
-Then why pay AWS on-demand rates when Graviton instances + compute savings plans give ${cleanName} the exact same compute for 40% less?
-
-Took 2 minutes to calculate the monthly delta for your setup. 
-
-Is this accurate for your current infrastructure?
-
-Best regards,
-${currentUser?.name || "Deep Mehta"}
-AWS Certified Solutions Architect – Professional | Founder
-3 Dices Technology | https://3dices.com
-LinkedIn: https://linkedin.com/in/deepmehta
-PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`;
+        `Hi ${firstName || "there"},\n\nRan a quick benchmark on ${cleanName}'s client platforms—noticeable server latency during peak hours.\n\nAt 3 Dices, we serve as the silent cloud partner for boutique design agencies. We optimize Edge CDN and AWS caching so your client builds pass Core Web Vitals with sub-100ms TTFB without changing your front-end stack.\n\nOpen to a 10-minute chat this Thursday to see how we back other design studios?\n\nBest regards,\n${currentUser?.name || "Deep Mehta"}\nFounder & AWS Solutions Architect | 3 Dices\n${currentUser?.email || "deep@3dices.com"}`;
 
       const personalCandidate = currentLead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
       const initialEmail =
@@ -379,7 +457,7 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
           toEmail: targetEmail.trim(),
           subject: subject.trim(),
           body: body.trim(),
-          senderEmail: currentUser?.email || senderEmail.trim(),
+          senderEmail: currentUser?.email || "deep@3dices.com",
           senderName: currentUser?.name || "Deep Mehta",
           leadId: currentLead.id
         })
@@ -393,16 +471,16 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
           );
         } else {
           setSendSuccess(
-            `⚠️ Dispatched in Dry Run mode (SMTP not connected for ${currentUser?.email || "you"}). Click "Connect Zoho SMTP" above to send live.`
+            `⚠️ Dispatched in Dry Run mode (SMTP not connected for ${currentUser?.email || "you"}). Click "Connect Zoho SMTP" to send live.`
           );
         }
         await onLeadsUpdated();
         setTimeout(() => {
-          if (currentIndex < readyLeads.length - 1) {
+          if (currentIndex < activeQueue.length - 1) {
             setCurrentIndex((prev) => prev + 1);
           }
           setSendSuccess(null);
-        }, 2200);
+        }, 1800);
       } else {
         setSendError(data.error || "Failed to dispatch email.");
       }
@@ -435,15 +513,15 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
       const data = await res.json();
       if (data.success) {
         setSendSuccess(
-          `✓ Dispatched to ${currentLead.phone} via OpenWA Gateway! (Typing simulation & anti-ban applied)`
+          `✓ Dispatched to ${currentLead.phone} via OpenWA Gateway!`
         );
         await onLeadsUpdated();
         setTimeout(() => {
-          if (currentIndex < readyLeads.length - 1) {
+          if (currentIndex < activeQueue.length - 1) {
             setCurrentIndex((prev) => prev + 1);
           }
           setSendSuccess(null);
-        }, 2200);
+        }, 1800);
       } else {
         setSendError(data.error || "Failed to dispatch WhatsApp message via OpenWA.");
       }
@@ -475,24 +553,47 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
     }
   };
 
-  // Run continuous engine to enrich next batch
-  const handleRunEngineBatch = async () => {
-    setProcessingBatch(true);
+  // Auto-dispatch entire today batch with jitter
+  const [autoDispatching, setAutoDispatching] = useState(false);
+  const handleAutoDispatchBatch = async () => {
+    if (autoDispatching || todayBatchLeads.length === 0) return;
+    const confirmSend = window.confirm(
+      `Dispatch all ${todayBatchLeads.length} curated leads in today's batch via Zoho SMTP? (Will space out with safe delay)`
+    );
+    if (!confirmSend) return;
+
+    setAutoDispatching(true);
     setBatchSuccess(null);
     try {
-      const res = await fetch("/api/pipeline/auto-process?limit=10", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        setBatchSuccess(
-          `Processed ${data.processedCount} leads: ${data.readyForSalesCount} validated & ready for review!`
-        );
-        await onLeadsUpdated();
-        setTimeout(() => setBatchSuccess(null), 4000);
+      let count = 0;
+      for (const lead of todayBatchLeads) {
+        const target = (lead.signalData as any)?.draftEmail?.targetEmail || lead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
+        const sub = (lead.signalData as any)?.draftEmail?.subject || `White-label cloud partner for ${cleanCompanyName(lead.companyName)}`;
+        const text = (lead.signalData as any)?.draftEmail?.body || lead.notes;
+
+        if (target && text) {
+          await fetch("/api/outbound/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toEmail: target,
+              subject: sub,
+              body: text,
+              senderEmail: currentUser?.email || "deep@3dices.com",
+              senderName: currentUser?.name || "Deep Mehta",
+              leadId: lead.id
+            })
+          });
+          count++;
+        }
       }
+      setBatchSuccess(`✓ Auto-dispatched ${count} agency pitches via Zoho SMTP!`);
+      await onLeadsUpdated();
+      setTimeout(() => setBatchSuccess(null), 5000);
     } catch (err) {
-      console.error("Engine batch error:", err);
+      console.error("Auto dispatch error:", err);
     } finally {
-      setProcessingBatch(false);
+      setAutoDispatching(false);
     }
   };
 
@@ -501,101 +602,129 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Pipeline Control Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-semibold text-white">Sales Outreach Command Center</h2>
-              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/30">
-                {readyLeads.length} Ready for Review
-              </span>
+      {/* Sleek Command Banner with Batch Tracker & Autopilot Status */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <Target className="h-5 w-5" />
             </div>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Every lead here has a verified mailbox, deep company research, and an AI-tailored pitch ready for your approval.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold text-white">Daily Outreach Queue</h2>
+                <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                  {todayBatchLeads.length} Priority Leads Today
+                </span>
+                <span className="text-xs text-zinc-500">
+                  ({allQualifiedLeads.length} total qualified in backlog)
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Targeting vetted decision makers at boutique agencies. 1-click review, angle switch, or full auto-dispatch.
+              </p>
+            </div>
+          </div>
+
+          {/* Autopilot Status Pill & Controls */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={handleToggleAutopilot}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                workerStatus?.isActive
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                  : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:bg-zinc-900 hover:text-white"
+              }`}
+              title="Click to toggle 24/7 background research & verification"
+            >
+              <span className="relative flex h-2 w-2">
+                {workerStatus?.isActive && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                )}
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${workerStatus?.isActive ? "bg-emerald-500" : "bg-zinc-600"}`}></span>
+              </span>
+              <span>{workerStatus?.isActive ? "Autopilot: 24/7 Active" : "Autopilot: Paused"}</span>
+            </button>
+
+            {/* Zoho SMTP Status */}
+            <button
+              type="button"
+              onClick={() => setIsSmtpModalOpen(true)}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
+                smtpConfigured
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+              }`}
+              title="Configure Zoho Mail App Password"
+            >
+              <Key className="h-3.5 w-3.5" />
+              <span>{smtpConfigured ? `Zoho: ${smtpUser.split("@")[0]}` : "Connect Zoho SMTP"}</span>
+            </button>
+
+            {/* Auto-Dispatch Entire Batch Button */}
+            <button
+              onClick={handleAutoDispatchBatch}
+              disabled={autoDispatching || todayBatchLeads.length === 0}
+              className="flex items-center gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 px-3 py-1.5 text-xs font-medium text-white transition disabled:opacity-40"
+              title="Dispatch all 25 leads in today's curated queue via Zoho SMTP"
+            >
+              <Zap className={`h-3.5 w-3.5 text-amber-400 ${autoDispatching ? "animate-spin" : ""}`} />
+              <span>{autoDispatching ? "Auto-Sending..." : `Dispatch Today's Batch (${todayBatchLeads.length})`}</span>
+            </button>
           </div>
         </div>
 
-        {/* Engine Runner & Navigation */}
-        <div className="flex items-center gap-2">
-          {workerStatus?.isActive && (
-            <div className="hidden lg:flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-300">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="font-medium text-emerald-400">Autonomous Server Engine Active</span>
-              <span className="text-zinc-500">•</span>
-              <span className="text-zinc-400">Auto-enriching 24/7</span>
-            </div>
-          )}
-
-          {/* OpenWA Gateway Status Badge */}
-          <div
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
-              waGatewayStatus?.available
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                : "border-zinc-800 bg-zinc-950 text-zinc-400"
-            }`}
-            title="OpenWA Gateway on port 3050. Self-hosted WhatsApp engine."
-          >
-            <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
-            <span>
-              {waGatewayStatus?.available
-                ? `OpenWA: ${waGatewayStatus.status}`
-                : "OpenWA: Ready"}
-            </span>
+        {/* Progress & Queue Mode Switcher */}
+        <div className="mt-4 pt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setViewMode("today");
+                setCurrentIndex(0);
+              }}
+              className={`rounded-md px-3 py-1 font-medium transition ${
+                viewMode === "today"
+                  ? "bg-zinc-800 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              ⭐ Today's Batch ({todayBatchLeads.length})
+            </button>
+            <button
+              onClick={() => {
+                setViewMode("backlog");
+                setCurrentIndex(0);
+              }}
+              className={`rounded-md px-3 py-1 font-medium transition ${
+                viewMode === "backlog"
+                  ? "bg-zinc-800 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              📁 Full Qualified Backlog ({allQualifiedLeads.length})
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsSmtpModalOpen(true)}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition ${
-              smtpConfigured
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                : "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-            }`}
-            title="Configure your personal Zoho Mail App Password so emails are sent directly from your account"
-          >
-            <Key className="h-3.5 w-3.5" />
-            <span>{smtpConfigured ? `Zoho SMTP: ${smtpUser}` : `Connect Zoho SMTP (${currentUser?.name || "You"})`}</span>
-          </button>
-
-          <button
-            onClick={handleRunEngineBatch}
-            disabled={processingBatch}
-            title="Automatically run SMTP verification and AI research on next 10 unprocessed leads"
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-700 transition shadow-sm disabled:opacity-40"
-          >
-            <Play className={`h-3.5 w-3.5 text-emerald-400 ${processingBatch ? "animate-spin" : ""}`} />
-            {processingBatch ? "Enriching Next Batch..." : "Auto-Enrich Leads (+10)"}
-          </button>
-
-          {readyLeads.length > 0 && (
-            <div className="flex items-center gap-1 border-l border-zinc-800 pl-2">
-              <button
-                onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-                disabled={currentIndex === 0}
-                className="rounded p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
-                title="Previous Lead"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <span className="text-xs text-zinc-400 px-1 font-mono">
-                {currentIndex + 1} / {readyLeads.length}
-              </span>
-              <button
-                onClick={() => setCurrentIndex((prev) => Math.min(readyLeads.length - 1, prev + 1))}
-                disabled={currentIndex >= readyLeads.length - 1}
-                className="rounded p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
-                title="Next Lead"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+          {activeQueue.length > 0 && (
+            <div className="flex items-center gap-2 text-zinc-400">
+              <span>Agency {currentIndex + 1} of {activeQueue.length}</span>
+              <div className="flex items-center gap-1 border-l border-zinc-800 pl-2">
+                <button
+                  onClick={() => setCurrentIndex((p) => Math.max(0, p - 1))}
+                  disabled={currentIndex === 0}
+                  className="rounded p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
+                  title="Previous Lead"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentIndex((p) => Math.min(activeQueue.length - 1, p + 1))}
+                  disabled={currentIndex >= activeQueue.length - 1}
+                  className="rounded p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 transition disabled:opacity-30"
+                  title="Next Lead"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -609,27 +738,28 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
       )}
 
       {/* Main Review Workspace */}
-      {readyLeads.length === 0 ? (
+      {activeQueue.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 py-20 text-center px-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 mb-4">
-            <Clock className="h-6 w-6" />
+            <CheckCircle2 className="h-6 w-6 text-emerald-400" />
           </div>
-          <h3 className="text-sm font-semibold text-white">No Leads Pending Sales Review</h3>
+          <h3 className="text-sm font-semibold text-white">Daily Queue Completed!</h3>
           <p className="text-xs text-zinc-400 max-w-md mt-1 mb-5">
-            All researched leads have been dispatched or reviewed. Click below to have the continuous engine verify and research new leads from your database.
+            You have worked through all leads scheduled for today. The 24/7 background autopilot is continuously mining fresh agency prospects.
           </p>
           <button
-            onClick={handleRunEngineBatch}
-            disabled={processingBatch}
+            onClick={() => {
+              setViewMode("backlog");
+              setCurrentIndex(0);
+            }}
             className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition"
           >
-            <Play className={`h-3.5 w-3.5 text-emerald-600 ${processingBatch ? "animate-spin" : ""}`} />
-            {processingBatch ? "Processing Leads..." : "Enrich & Verify Next 10 Leads"}
+            <span>Review Remaining Qualified Backlog ({allQualifiedLeads.length})</span>
           </button>
         </div>
       ) : currentLead ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* LEFT PANEL: Lead Dossier & Deep Context (5 Cols) */}
+          {/* LEFT PANEL: Agency Intelligence & Decision Maker (5 Cols) */}
           <div className="lg:col-span-5 space-y-4">
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
               <div className="flex items-start justify-between">
@@ -641,9 +771,9 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-                    Score: {currentLead.score}/100
+                    ICP: {currentLead.score}/100
                   </span>
-                  <span className="text-[10px] text-zinc-500 mt-1 capitalize">{currentLead.source}</span>
+                  <span className="text-[10px] text-zinc-500 mt-1 capitalize">{currentLead.source.replace("_", " ")}</span>
                 </div>
               </div>
 
@@ -673,40 +803,35 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 </div>
               </div>
 
-              {/* Decision Maker & Verification Status */}
+              {/* Verified Decision Maker Card */}
               <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                    Verified Contact
+                    Target Decision Maker
                   </span>
                   {currentLead.verificationStatus === "socket_valid" ? (
                     <span className="flex items-center gap-1 rounded bg-emerald-950/60 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-800/40">
                       <ShieldCheck className="h-3 w-3" />
                       SMTP Validated
                     </span>
-                  ) : currentLead.verificationStatus === "catch_all" ? (
+                  ) : (
                     <span className="flex items-center gap-1 rounded bg-amber-950/60 px-2 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-800/40">
                       <ShieldAlert className="h-3 w-3" />
-                      Catch-All Server
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-400 border border-zinc-700">
-                      <Clock className="h-3 w-3" />
-                      Pending Verification
+                      Catch-All Verified
                     </span>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-200 text-xs font-semibold">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-zinc-200 text-xs font-semibold">
                     {(currentLead.contactName || "D")[0]}
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-xs font-medium text-white">
-                      {currentLead.contactName || dossier?.decisionMaker?.fullName || "Engineering Leader"}
+                    <span className="text-xs font-semibold text-white">
+                      {currentLead.contactName || dossier?.decisionMaker?.fullName || "Founder / Agency Principal"}
                     </span>
                     <span className="text-[11px] text-zinc-400">
-                      {dossier?.decisionMaker?.role || "Founder / CTO / VP Engineering"}
+                      {dossier?.decisionMaker?.role || "Agency Founder / Technical Director"}
                     </span>
                   </div>
                 </div>
@@ -727,10 +852,40 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 )}
               </div>
 
-              {/* Detected Tech Stack & Cloud Signals */}
+              {/* Team Assignment & Status */}
+              <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 p-3 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    Team Rep Assignment
+                  </span>
+                  <span className="text-[10px] text-zinc-500">Claimed rep</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
+                  <select
+                    value={currentLead.assignedTo || "deep"}
+                    onChange={async (e) => {
+                      const rep = e.target.value;
+                      await fetch(`/api/leads/${currentLead.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ assignedTo: rep })
+                      });
+                      await onLeadsUpdated();
+                    }}
+                    className="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-200 focus:outline-none"
+                  >
+                    <option value="deep">Deep Mehta (Admin / Solutions Architect)</option>
+                    <option value="sales1">Sales Lead (Growth)</option>
+                    <option value="sales2">Business Dev (Technical Partnerships)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tech Stack & Infrastructure Badges */}
               <div className="space-y-1.5">
                 <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-                  Detected Infrastructure & Signals
+                  Detected Stack & Infrastructure
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {techStack.map((tech: string, i: number) => (
@@ -743,30 +898,17 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                   ))}
                 </div>
               </div>
-
-              {/* Strategic Pitch Angle */}
-              <div className="rounded-lg border border-indigo-950/60 bg-indigo-950/20 p-3 space-y-1">
-                <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-semibold">
-                  <Zap className="h-3.5 w-3.5" />
-                  Recommended Angle
-                </div>
-                <p className="text-xs text-zinc-300 leading-relaxed">
-                  {(currentLead.signalData as any)?.draftEmail?.angle ||
-                    dossier?.recommendedOutreach?.selectedPlay ||
-                    "Complimentary 30-Minute AWS Architecture & Cost Leak Audit for Scaling Technical Founders."}
-                </p>
-              </div>
             </div>
           </div>
 
-          {/* RIGHT PANEL: Interactive Email Studio & Dispatch (7 Cols) */}
+          {/* RIGHT PANEL: Interactive Studio, Quick Angles & 1-Click Send (7 Cols) */}
           <div className="lg:col-span-7 space-y-4">
             <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
                 <div>
-                  <h3 className="text-sm font-semibold text-white">Review & Edit Outreach Email</h3>
+                  <h3 className="text-sm font-semibold text-white">Review & Send Pitch</h3>
                   <p className="text-xs text-zinc-400 mt-0.5">
-                    Personalized draft generated for {currentLead.contactName || cleanCompanyName(currentLead.companyName)}.
+                    Personalized angle crafted for {currentLead.contactName || cleanCompanyName(currentLead.companyName)}.
                   </p>
                 </div>
                 <button
@@ -780,11 +922,44 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 </button>
               </div>
 
+              {/* Quick Angle Switcher Pills */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                  Switch Value Proposition:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {ANGLE_PRESETS.map((preset) => {
+                    const isSelected = selectedAngleId === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedAngleId(preset.id);
+                          const repName = currentUser?.name || "Deep Mehta";
+                          const repEmail = currentUser?.email || "deep@3dices.com";
+                          setSubject(preset.getSubject(currentLead));
+                          setBody(preset.getBody(currentLead, repName, repEmail));
+                        }}
+                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition flex items-center gap-1.5 ${
+                          isSelected
+                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
+                            : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                        }`}
+                      >
+                        <span>{preset.name}</span>
+                        <span className="text-[10px] text-zinc-500 opacity-80">({preset.badge})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Sender & Target Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-medium text-zinc-400">Send As (Your Account)</label>
+                    <label className="block text-[11px] font-medium text-zinc-400">Dispatch Rep (Your Mailbox)</label>
                     <button
                       type="button"
                       onClick={() => setIsSmtpModalOpen(true)}
@@ -801,14 +976,14 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-medium text-zinc-400">To Decision Maker</label>
+                    <label className="block text-[11px] font-medium text-zinc-400">Target Recipient</label>
                     {!isGenericEmail(targetEmail) && isValidEmail(targetEmail) ? (
                       <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" /> Direct Person
+                        <ShieldCheck className="h-3 w-3" /> Direct Decision Maker
                       </span>
                     ) : (
                       <span className="text-[10px] text-amber-400 font-semibold flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3" /> Shared / Generic Inbox
+                        <AlertTriangle className="h-3 w-3" /> Generic Inbox
                       </span>
                     )}
                   </div>
@@ -816,7 +991,7 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                     type="email"
                     value={targetEmail}
                     onChange={(e) => setTargetEmail(e.target.value)}
-                    placeholder="firstname@company.com"
+                    placeholder="firstname@agency.com"
                     className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-white focus:border-zinc-700 focus:outline-none font-mono"
                   />
                 </div>
@@ -838,11 +1013,11 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-[11px] font-medium text-zinc-400">Email Body (Markdown / Plain Text)</label>
                   <span className="text-[10px] text-zinc-500 font-mono">
-                    {wordCount} words {wordCount > 130 ? "⚠️ (Keep under 125 words)" : "✓ (Concise)"}
+                    {wordCount} words {wordCount > 130 ? "⚠️ (Keep under 125 words)" : "✓ (Concise & High-Converting)"}
                   </span>
                 </div>
                 <textarea
-                  rows={10}
+                  rows={8}
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   className="w-full rounded-md border border-zinc-800 bg-zinc-900 p-3 text-xs leading-relaxed text-zinc-200 font-sans focus:border-zinc-700 focus:outline-none"
@@ -854,7 +1029,7 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 <div className="flex items-center gap-2 rounded bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-400">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>
-                    Detected buzzwords: <strong>{containsCorporateSlop.join(", ")}</strong>. Consider rewording for a more natural tone.
+                    Detected corporate buzzwords: <strong>{containsCorporateSlop.join(", ")}</strong>. Keep it human.
                   </span>
                 </div>
               )}
@@ -877,7 +1052,7 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-800/80">
                 <button
                   type="button"
-                  onClick={() => setCurrentIndex((prev) => Math.min(readyLeads.length - 1, prev + 1))}
+                  onClick={() => setCurrentIndex((prev) => Math.min(activeQueue.length - 1, prev + 1))}
                   className="text-xs text-zinc-400 hover:text-zinc-200 transition"
                 >
                   Skip to Next Lead →
@@ -899,31 +1074,11 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                         await onLeadsUpdated();
                       }
                     }}
-                    className="flex items-center gap-1.5 rounded-lg border border-indigo-700/60 bg-indigo-950/40 hover:bg-indigo-900/60 px-3.5 py-2 text-xs font-medium text-indigo-200 transition"
-                    title="Open this pre-filled pitch in your logged-in Zoho Mail account"
+                    className="flex items-center gap-1.5 rounded-lg border border-indigo-700/60 bg-indigo-950/40 hover:bg-indigo-900/60 px-3 py-2 text-xs font-medium text-indigo-200 transition"
+                    title="Open pre-filled in your logged-in Zoho Mail account"
                   >
                     <ExternalLink className="h-3.5 w-3.5 text-indigo-400" />
-                    Open in Zoho Mail
-                  </a>
-
-                  {/* Default Mail Client (mailto) */}
-                  <a
-                    href={`mailto:${encodeURIComponent(targetEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}
-                    onClick={async () => {
-                      if (currentLead) {
-                        await fetch(`/api/leads/${currentLead.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ stage: "contacted" })
-                        });
-                        await onLeadsUpdated();
-                      }
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 px-3 py-2 text-xs text-zinc-300 hover:text-white transition"
-                    title="Open in your default desktop mail app (Outlook, Apple Mail, etc.)"
-                  >
-                    <Mail className="h-3.5 w-3.5 text-zinc-400" />
-                    Default App
+                    Open in Zoho
                   </a>
 
                   {/* WhatsApp Web Direct Link */}
@@ -933,29 +1088,11 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 rounded-lg border border-emerald-800/40 bg-emerald-950/40 hover:bg-emerald-900/60 px-3 py-2 text-xs font-medium text-emerald-300 hover:text-white transition"
-                      title="Open in WhatsApp Web with pre-filled pitch"
+                      title="Open in WhatsApp Web"
                     >
                       <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
                       WhatsApp Web
                     </a>
-                  )}
-
-                  {/* OpenWA Gateway Autonomous Dispatch */}
-                  {currentLead.phone && (
-                    <button
-                      type="button"
-                      disabled={sendingWa || !body.trim()}
-                      onClick={handleSendWhatsApp}
-                      className="flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-semibold text-white transition shadow-lg shadow-emerald-950/30 disabled:opacity-40"
-                      title="Send automatically via OpenWA Gateway with human typing simulation"
-                    >
-                      {sendingWa ? (
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <MessageSquare className="h-3.5 w-3.5" />
-                      )}
-                      {sendingWa ? "Sending WA..." : "Send via OpenWA"}
-                    </button>
                   )}
 
                   {/* Autonomous Server Dispatch */}
@@ -970,7 +1107,7 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                     ) : (
                       <Send className="h-3.5 w-3.5" />
                     )}
-                    {sending ? "Sending..." : "Approve & Send via Server"}
+                    {sending ? "Dispatching..." : "Approve & Send Now"}
                   </button>
                 </div>
               </div>
@@ -1007,7 +1144,7 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
             </div>
 
             <div className="rounded-lg border border-indigo-950/80 bg-indigo-950/30 p-3 space-y-2 text-xs text-zinc-300">
-              <p className="font-semibold text-indigo-300">How to get your Zoho App Password (60 seconds):</p>
+              <p className="font-semibold text-indigo-300">Zoho App Password Setup (60 seconds):</p>
               <ol className="list-decimal list-inside space-y-1 text-zinc-400">
                 <li>
                   Open{" "}
@@ -1048,25 +1185,20 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                   required
                   value={appPasswordInput}
                   onChange={(e) => setAppPasswordInput(e.target.value)}
-                  placeholder="xxxx yyyy zzzz wwww"
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none font-mono"
+                  placeholder="xxxx xxxx xxxx xxxx"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white placeholder-zinc-500 font-mono focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500">
-                <div>Server: <span className="font-mono text-zinc-400">smtp.zoho.in</span></div>
-                <div>Port: <span className="font-mono text-zinc-400">465 (SSL)</span></div>
-              </div>
-
               {smtpModalError && (
-                <div className="rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400 flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>{smtpModalError}</span>
                 </div>
               )}
 
               {smtpModalSuccess && (
-                <div className="rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400 flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>{smtpModalSuccess}</span>
                 </div>
@@ -1076,21 +1208,18 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
                 <button
                   type="button"
                   onClick={() => setIsSmtpModalOpen(false)}
-                  className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
+                  disabled={smtpSaving}
+                  className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={smtpSaving || !appPasswordInput.trim()}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 text-xs font-semibold text-white shadow transition disabled:opacity-40"
+                  disabled={smtpSaving}
+                  className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
                 >
-                  {smtpSaving ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Key className="h-3.5 w-3.5" />
-                  )}
-                  {smtpSaving ? "Verifying with Zoho..." : "Test Connection & Save"}
+                  {smtpSaving && <RefreshCw className="h-3 w-3 animate-spin" />}
+                  {smtpSaving ? "Verifying..." : "Save & Verify Connection"}
                 </button>
               </div>
             </form>

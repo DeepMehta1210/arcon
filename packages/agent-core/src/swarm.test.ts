@@ -45,7 +45,7 @@ describe("Research Swarm and 5-Factor Rubric", () => {
     expect(dossier.decisionMaker.fullName).toBe("Jordan Smith");
     expect(typeof dossier.recommendedOutreach.lintReport.ste100Compliant).toBe("boolean");
     expect(dossier.recommendedOutreach.lintReport.passed).toBe(true);
-  }, 10000);
+  }, 20000);
 
   it("crafts 3 Dices AI & Amazon Bedrock outreach for AI leads", () => {
     const { generateProperOutreachEmail } = require("./researcher");

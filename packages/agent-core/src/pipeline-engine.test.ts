@@ -39,11 +39,12 @@ describe("Pipeline Engine & Continuous Lead Enrichment", () => {
     const result = await enrichAndPersonalizeLead({
       id: "test-lead-generic",
       companyName: "Generic Corp",
-      emailCandidates: ["sales@genericcorp.com", "info@genericcorp.com"]
+      websiteUrl: "https://example.com",
+      emailCandidates: ["sales@example.com", "info@example.com"]
     });
 
     expect(result.companyName).toBe("Generic Corp");
-    // Should NOT send to sales@genericcorp.com
-    expect(result.targetEmail).not.toBe("sales@genericcorp.com");
-  }, 10000);
+    // Should NOT send to sales@example.com
+    expect(result.targetEmail).not.toBe("sales@example.com");
+  }, 15000);
 });

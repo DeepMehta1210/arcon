@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
   ShieldCheck,
-  Radio,
   Send,
   Inbox,
   Kanban,
@@ -26,51 +25,35 @@ import {
   Star,
   Copy,
   Check,
-  Instagram,
-  Youtube,
-  Github,
-  Link2,
-  Plus,
   LogOut,
   Server,
-  ShieldAlert,
   Zap,
   Building2,
   Flame,
-  Upload
+  Upload,
+  Crosshair,
+  UserCheck,
+  MessageSquare,
+  Calendar,
+  Layers,
+  Clock
 } from "lucide-react";
 import { ArconLogo } from "./components/ArconLogo";
 import { TeamManagementView } from "./components/TeamManagementView";
-import { SalesReviewView, isLeadReadyForSalesReview, cleanCompanyName } from "./components/SalesReviewView";
+import {
+  SalesReviewView,
+  isLeadReadyForSalesReview,
+  cleanCompanyName,
+  isGenericEmail,
+  isValidEmail,
+  StoredLead
+} from "./components/SalesReviewView";
 
 const TEAM_SENDERS = [
   { id: "deep", email: "deep@3dices.com", name: "Deep Mehta", role: "AWS Certified Solutions Architect – Professional | Founder" },
   { id: "sales1", email: "sales1@3dices.com", name: "Sales Lead", role: "Enterprise Growth" },
   { id: "sales2", email: "sales2@3dices.com", name: "Business Dev", role: "Technical Partnerships" }
 ];
-
-interface StoredLead {
-  id: string;
-  source: string;
-  companyName: string;
-  contactName?: string;
-  headline?: string;
-  emailCandidates: string[];
-  phone?: string;
-  websiteUrl?: string;
-  location?: {
-    city?: string;
-    state?: string;
-    country?: string;
-    rawAddress?: string;
-  };
-  socialUrls: Record<string, string>;
-  stage: "sourced" | "verified" | "researched" | "contacted" | "replied";
-  score: number;
-  verificationStatus?: "unverified" | "socket_valid" | "socket_invalid" | "catch_all";
-  notes?: string;
-  signalData?: Record<string, unknown>;
-}
 
 interface Stats {
   total: number;
@@ -79,19 +62,22 @@ interface Stats {
   researched: number;
   contacted: number;
   replied: number;
+  disqualified?: number;
   withEmail: number;
   withPhone: number;
 }
 
-const STAGES: Array<{ id: StoredLead["stage"]; label: string }> = [
-  { id: "sourced", label: "Sourced" },
-  { id: "verified", label: "Verified" },
-  { id: "researched", label: "Researched" },
-  { id: "contacted", label: "Contacted" }
+const CRM_STAGES: Array<{ id: StoredLead["stage"]; label: string; color: string }> = [
+  { id: "researched", label: "Ready to Pitch", color: "emerald" },
+  { id: "contacted", label: "Pitch Sent", color: "blue" },
+  { id: "replied", label: "Founder Replied", color: "purple" },
+  { id: "verified", label: "Call Booked", color: "amber" },
+  { id: "sourced", label: "Backlog / Sourced", color: "zinc" }
 ];
 
 export default function ArconDashboard() {
-  const [activeTab, setActiveTab] = useState<"radar" | "review" | "pipeline" | "inbox" | "composer" | "team">("radar");
+  // Default to the actionable curated Outreach Queue
+  const [activeTab, setActiveTab] = useState<"review" | "pipeline" | "inbox" | "radar" | "team">("review");
   const [leads, setLeads] = useState<StoredLead[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +95,7 @@ export default function ArconDashboard() {
   // Autonomous Sourcing modal state
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [sourceChannel, setSourceChannel] = useState<"places" | "show_hn" | "yc">("places");
-  const [sourceKeyword, setSourceKeyword] = useState("Cloud Consulting");
+  const [sourceKeyword, setSourceKeyword] = useState("Web Design Agency");
   const [sourceCity, setSourceCity] = useState("London");
   const [sourceBatch, setSourceBatch] = useState("W24");
   const [sourceLimit, setSourceLimit] = useState(15);
@@ -117,13 +103,15 @@ export default function ArconDashboard() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [sourceSuccess, setSourceSuccess] = useState<string | null>(null);
 
-  // B2C Creator discovery modal state
-  const [isCreatorModalOpen, setIsCreatorModalOpen] = useState(false);
-  const [creatorPlatform, setCreatorPlatform] = useState<"instagram" | "youtube" | "linktree" | "github">("instagram");
-  const [creatorIdentifier, setCreatorIdentifier] = useState("");
-  const [creatorLoading, setCreatorLoading] = useState(false);
-  const [creatorError, setCreatorError] = useState<string | null>(null);
-  const [creatorSuccess, setCreatorSuccess] = useState<string | null>(null);
+  // Sniper Agency modal state
+  const [isSniperModalOpen, setIsSniperModalOpen] = useState(false);
+  const [sniperUrl, setSniperUrl] = useState("");
+  const [sniperContactName, setSniperContactName] = useState("");
+  const [sniperCompanyName, setSniperCompanyName] = useState("");
+  const [sniperArchetype, setSniperArchetype] = useState("Creative Studio");
+  const [sniperLoading, setSniperLoading] = useState(false);
+  const [sniperError, setSniperError] = useState<string | null>(null);
+  const [sniperSuccess, setSniperSuccess] = useState<string | null>(null);
 
   // Admin CSV Import modal state
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -132,20 +120,18 @@ export default function ArconDashboard() {
   const [csvError, setCsvError] = useState<string | null>(null);
   const [csvSuccess, setCsvSuccess] = useState<string | null>(null);
 
-  // Pagination for radar
+  // Pagination for all agencies directory
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(30);
+  const pageSize = 30;
 
-  // Outbound composer state
-  const [selectedSenderEmail, setSelectedSenderEmail] = useState("deep@3dices.com");
-  const [composerText, setComposerText] = useState(
-    `Hi there,\n\nWhile reviewing your application, I noticed your team is actively scaling your web and cloud infrastructure.\n\nAt 3 Dices, we partner with technical founders to eliminate backend bottlenecks, automate CI/CD release pipelines, and cut AWS spend—routinely reducing monthly cloud bills by ~40% while achieving zero-downtime cutovers.\n\nWe're currently offering a complimentary 30-Minute AWS Architecture & Cost Review. We audit your setup, identify immediate latency and cost leaks, and share actionable runbooks whether you work with us or not.\n\nWould you be open to a quick 10-minute call this Thursday to see if there are easy wins for your team?\n\nBest regards,\nDeep Mehta\nAWS Certified Solutions Architect – Professional & Security Specialist\nFounder, 3 Dices Technology | https://3dices.com`
-  );
-  const [targetEmail, setTargetEmail] = useState("contact@target.com");
-  const [targetSubject, setTargetSubject] = useState("Question regarding your cloud architecture & cost");
-  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
+  // Pipeline CRM Rep Filter
+  const [pipelineRepFilter, setPipelineRepFilter] = useState<string>("all");
+
+  // Autopilot worker state
+  const [workerStatus, setWorkerStatus] = useState<{
+    isActive: boolean;
+    currentActivity: string;
+  } | null>(null);
 
   // Authenticated user state
   const [currentUser, setCurrentUser] = useState<{ id: string; email: string; name: string; role: string } | null>(null);
@@ -172,8 +158,19 @@ export default function ArconDashboard() {
     }
   };
 
+  const fetchWorkerStatus = async () => {
+    try {
+      const res = await fetch("/api/pipeline/worker-status");
+      const data = await res.json();
+      if (data.success && data.worker) {
+        setWorkerStatus(data.worker);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     fetchLeads();
+    fetchWorkerStatus();
     fetch("/api/auth/me")
       .then(async (r) => {
         if (!r.ok) return null;
@@ -183,12 +180,6 @@ export default function ArconDashboard() {
       .then((data) => {
         if (data && data.authenticated && data.user) {
           setCurrentUser(data.user);
-          if (data.user.email) {
-            setSelectedSenderEmail(data.user.email);
-          }
-          if (data.user.role === "sales") {
-            setActiveTab("review");
-          }
         }
       })
       .catch(() => {});
@@ -197,6 +188,24 @@ export default function ArconDashboard() {
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     window.location.href = "/login";
+  };
+
+  // Toggle Autopilot
+  const handleToggleAutopilot = async () => {
+    try {
+      const action = workerStatus?.isActive ? "pause" : "resume";
+      const res = await fetch("/api/pipeline/worker-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      if (data.success && data.worker) {
+        setWorkerStatus(data.worker);
+      }
+    } catch (err) {
+      console.error("Failed to toggle autopilot:", err);
+    }
   };
 
   // Admin CSV lead import handler
@@ -219,7 +228,7 @@ export default function ArconDashboard() {
       const data = await res.json();
       if (data.success) {
         setCsvSuccess(
-          `Imported ${data.totalParsed} leads (${data.added} new added). Total leads: ${data.stats?.total || leads.length + data.added}`
+          `Imported ${data.totalParsed} leads (${data.added} new added).`
         );
         await fetchLeads();
         setTimeout(() => {
@@ -234,6 +243,46 @@ export default function ArconDashboard() {
       setCsvError((err as Error).message);
     } finally {
       setCsvLoading(false);
+    }
+  };
+
+  // Sniper Agency Handler
+  const handleSniperSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sniperUrl.trim()) return;
+    setSniperLoading(true);
+    setSniperError(null);
+    setSniperSuccess(null);
+    try {
+      const res = await fetch("/api/leads/sniper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: sniperUrl.trim(),
+          contactName: sniperContactName.trim() || undefined,
+          companyName: sniperCompanyName.trim() || undefined,
+          archetype: sniperArchetype
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.lead) {
+        setSniperSuccess(`Targeted ${data.lead.companyName}! Lead added to Outreach Queue.`);
+        await fetchLeads();
+        setTimeout(() => {
+          setIsSniperModalOpen(false);
+          setSniperSuccess(null);
+          setSniperUrl("");
+          setSniperContactName("");
+          setSniperCompanyName("");
+          setActiveTab("review");
+        }, 1200);
+      } else {
+        setSniperError(data.error || "Failed to sniper target agency.");
+      }
+    } catch (err) {
+      setSniperError((err as Error).message);
+    } finally {
+      setSniperLoading(false);
     }
   };
 
@@ -274,9 +323,6 @@ export default function ArconDashboard() {
         if (selectedLead?.id === lead.id) {
           setSelectedLead(data.lead);
         }
-        if (stats) {
-          setStats({ ...stats, verified: stats.verified + 1 });
-        }
       }
     } catch (err) {
       console.error("Verify failed:", err);
@@ -295,17 +341,6 @@ export default function ArconDashboard() {
         setLeads((prev) => prev.map((l) => (l.id === lead.id ? data.lead : l)));
         if (selectedLead?.id === lead.id) {
           setSelectedLead(data.lead);
-        }
-        const pitchText = data.dossier?.recommendedOutreach?.tailoredBody || data.dossier?.suggestedAngle;
-        if (pitchText) {
-          setComposerText(pitchText);
-        }
-        const pitchSubject = data.dossier?.recommendedOutreach?.tailoredSubject;
-        if (pitchSubject) {
-          setTargetSubject(pitchSubject);
-        }
-        if (data.lead.emailCandidates?.[0]) {
-          setTargetEmail(data.lead.emailCandidates[0]);
         }
       }
     } catch (err) {
@@ -331,81 +366,11 @@ export default function ArconDashboard() {
     }
   };
 
-  // Copy SOW to clipboard
   const handleCopySow = () => {
     if (generatedSow) {
       navigator.clipboard.writeText(generatedSow);
       setCopiedSow(true);
       setTimeout(() => setCopiedSow(false), 2000);
-    }
-  };
-
-  // Open composer with lead info
-  const handleComposeForLead = (lead: StoredLead) => {
-    if (lead.emailCandidates[0]) {
-      setTargetEmail(lead.emailCandidates[0]);
-    }
-    const properEmail = (lead.signalData as any)?.properEmail || (lead.signalData as any)?.dossier?.recommendedOutreach;
-    if (properEmail?.tailoredSubject) {
-      setTargetSubject(properEmail.tailoredSubject);
-    } else {
-      setTargetSubject(`Quick question regarding ${lead.companyName}'s cloud infrastructure`);
-    }
-
-    if (properEmail?.tailoredBody) {
-      setComposerText(properEmail.tailoredBody);
-    } else if (lead.notes) {
-      setComposerText(lead.notes);
-    } else {
-      const firstName = lead.contactName?.split(" ")[0] || "there";
-      setComposerText(
-        `Hi ${firstName},\n\nI was looking into ${lead.companyName} and really loved your platform.\n\nAt 3 Dices, we partner with growing engineering teams to streamline cloud deployments, cut server latency, and scale backend infrastructure without the overhead of hiring an entire in-house DevOps department.\n\nWould you be open to a quick 10-minute introductory call this Thursday to see if we might be a fit?\n\nBest regards,\nDeep Mehta\nFounder & Cloud Architect | 3 Dices`
-      );
-    }
-    setSelectedLead(null);
-    setActiveTab("composer");
-  };
-
-  // Composer word count
-  const totalWords = composerText.trim() ? composerText.trim().split(/\s+/).length : 0;
-
-  const handleSendTouch = async () => {
-    if (!targetEmail.trim() || !targetSubject.trim() || !composerText.trim() || sendingEmail) return;
-    setSendingEmail(true);
-    setSendError(null);
-    setSendSuccess(null);
-
-    const currentSender = TEAM_SENDERS.find((s) => s.email === selectedSenderEmail) || {
-      name: currentUser?.name || "Deep Mehta",
-      email: selectedSenderEmail || "deep@3dices.com"
-    };
-
-    try {
-      const res = await fetch("/api/outbound/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toEmail: targetEmail,
-          subject: targetSubject,
-          body: composerText,
-          senderEmail: currentSender.email,
-          senderName: currentSender.name,
-          leadId: selectedLead?.id
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.receipt) {
-        setSendSuccess(
-          `Dispatched via ${currentSender.name} <${currentSender.email}> to ${targetEmail} (Status: ${data.receipt.status}, ID: ${data.receipt.messageId || data.receipt.receiptId})`
-        );
-        fetchLeads();
-      } else {
-        setSendError(data.error || "Failed to dispatch email.");
-      }
-    } catch (err) {
-      setSendError((err as Error).message);
-    } finally {
-      setSendingEmail(false);
     }
   };
 
@@ -430,7 +395,7 @@ export default function ArconDashboard() {
       const data = await res.json();
       if (data.success) {
         setSourceSuccess(
-          `Mined ${data.minedCount} leads (${data.added} new added). Total leads in DB: ${data.total}`
+          `Mined ${data.minedCount} leads (${data.added} new added).`
         );
         await fetchLeads();
         setTimeout(() => {
@@ -447,222 +412,171 @@ export default function ArconDashboard() {
     }
   };
 
-  // Discover & scrape creator
-  const handleScrapeCreator = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!creatorIdentifier.trim()) return;
-    setCreatorLoading(true);
-    setCreatorError(null);
-    setCreatorSuccess(null);
-    try {
-      const res = await fetch("/api/creators", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform: creatorPlatform,
-          identifier: creatorIdentifier.trim()
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.lead) {
-        setLeads((prev) => [data.lead, ...prev.filter((l) => l.id !== data.lead.id)]);
-        if (data.stats) {
-          setStats(data.stats);
-        }
-        setCreatorSuccess(`Discovered ${data.lead.companyName || creatorIdentifier}!`);
-        setSelectedLead(data.lead);
-        setTimeout(() => {
-          setIsCreatorModalOpen(false);
-          setCreatorSuccess(null);
-          setCreatorIdentifier("");
-        }, 1200);
-      } else {
-        setCreatorError(data.error || "Failed to discover creator.");
-      }
-    } catch (err) {
-      setCreatorError((err as Error).message);
-    } finally {
-      setCreatorLoading(false);
-    }
-  };
-
-  // Dynamic source counts
-  const sourceCounts = useMemo(() => {
-    return {
-      all: leads.length,
-      places: leads.filter((l) => l.source === "places").length,
-      showHn: leads.filter((l) => l.source === "show_hn").length,
-      yc: leads.filter((l) => l.source === "yc").length,
-      ukCloud: leads.filter((l) => ((l.signalData?.sourceFile as string) || "").includes("uk-cloud")).length,
-      usaIt: leads.filter((l) => ((l.signalData?.sourceFile as string) || "").includes("USA_IT")).length,
-      clutch: leads.filter((l) => ((l.signalData?.sourceFile as string) || "").includes("clutch")).length,
-      wordpress: leads.filter((l) => ((l.signalData?.sourceFile as string) || "").includes("Wordpress")).length,
-      instagram: leads.filter((l) => l.source === "instagram").length,
-      youtube: leads.filter((l) => l.source === "youtube").length,
-      linktree: leads.filter((l) => l.source === "linktree").length,
-      github: leads.filter((l) => l.source === "github").length
-    };
-  }, [leads]);
-
-  // Filtered leads
+  // Filtered leads for directory
   const filteredLeads = useMemo(() => {
-    return leads.filter((l) => {
-      if (selectedSourceFilter !== "all") {
-        const sourceFile = (l.signalData?.sourceFile as string) || "";
-        if (selectedSourceFilter === "places" && l.source !== "places") return false;
-        if (selectedSourceFilter === "show_hn" && l.source !== "show_hn") return false;
-        if (selectedSourceFilter === "yc" && l.source !== "yc") return false;
-        if (selectedSourceFilter === "uk-cloud" && !sourceFile.includes("uk-cloud")) return false;
-        if (selectedSourceFilter === "usa-it" && !sourceFile.includes("USA_IT")) return false;
-        if (selectedSourceFilter === "clutch" && !sourceFile.includes("clutch")) return false;
-        if (selectedSourceFilter === "wordpress" && !sourceFile.includes("Wordpress")) return false;
-        if (selectedSourceFilter === "instagram" && l.source !== "instagram") return false;
-        if (selectedSourceFilter === "youtube" && l.source !== "youtube") return false;
-        if (selectedSourceFilter === "linktree" && l.source !== "linktree") return false;
-        if (selectedSourceFilter === "github" && l.source !== "github") return false;
-      }
-
-      if (selectedStageFilter !== "all" && l.stage !== selectedStageFilter) {
+    return leads.filter((lead) => {
+      if (selectedSourceFilter !== "all" && lead.source !== selectedSourceFilter) {
         return false;
       }
-
+      if (selectedStageFilter !== "all" && lead.stage !== selectedStageFilter) {
+        return false;
+      }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
-      return (
-        l.companyName.toLowerCase().includes(q) ||
-        l.contactName?.toLowerCase().includes(q) ||
-        l.headline?.toLowerCase().includes(q) ||
-        l.location?.city?.toLowerCase().includes(q) ||
-        l.location?.country?.toLowerCase().includes(q) ||
-        l.emailCandidates.some((e) => e.toLowerCase().includes(q))
-      );
+      const name = lead.companyName.toLowerCase();
+      const contact = (lead.contactName || "").toLowerCase();
+      const city = (lead.location?.city || "").toLowerCase();
+      return name.includes(q) || contact.includes(q) || city.includes(q);
     });
-  }, [leads, searchQuery, selectedSourceFilter, selectedStageFilter]);
+  }, [leads, selectedSourceFilter, selectedStageFilter, searchQuery]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredLeads.length / pageSize) || 1;
   const paginatedLeads = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredLeads.slice(start, start + pageSize);
   }, [filteredLeads, currentPage, pageSize]);
 
-  const readyForReviewCount = useMemo(() => {
-    return leads.filter(isLeadReadyForSalesReview).length;
+  // Daily Curated Queue Count (Capped at 25 for achievable daily target)
+  const todayQueueCount = useMemo(() => {
+    const ready = leads.filter(isLeadReadyForSalesReview);
+    return Math.min(ready.length, 25);
   }, [leads]);
 
   return (
     <div className="flex h-screen flex-col bg-zinc-950 text-zinc-100 font-sans relative">
-      {/* Clean Minimal Header */}
-      <header className="flex h-14 items-center justify-between border-b border-zinc-800/80 bg-zinc-950 px-6 shrink-0">
-        <div className="flex items-center gap-8">
-          <ArconLogo size="md" showWordmark={true} />
+      {/* Sleek, Clutter-Free Header */}
+      <header className="flex h-14 items-center justify-between border-b border-zinc-800/80 bg-zinc-950 px-6 shrink-0 z-20">
+        <div className="flex items-center gap-7">
+          <div className="flex items-center gap-2.5">
+            <ArconLogo size="md" showWordmark={true} />
+            <span className="hidden sm:inline-block rounded bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
+              Agency OS
+            </span>
+          </div>
 
-          {/* Simple Tab Navigation */}
-          <nav className="flex items-center gap-1 text-sm font-medium">
-            <button
-              onClick={() => setActiveTab("radar")}
-              className={`rounded-md px-3 py-1.5 transition ${
-                activeTab === "radar"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
-              }`}
-            >
-              Leads
-            </button>
+          {/* Clean 4-Tab Navigation */}
+          <nav className="flex items-center gap-1 text-xs font-medium">
             <button
               onClick={() => setActiveTab("review")}
-              className={`rounded-md px-3 py-1.5 transition flex items-center gap-1.5 ${
+              className={`rounded-lg px-3 py-1.5 transition flex items-center gap-1.5 ${
                 activeTab === "review"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-zinc-800 text-white shadow-sm font-semibold"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
               }`}
             >
-              <span>Review & Send</span>
-              {readyForReviewCount > 0 && (
-                <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[10px] text-emerald-400 font-semibold border border-emerald-500/30">
-                  {readyForReviewCount}
+              <Zap className="h-3.5 w-3.5 text-amber-400" />
+              <span>Outreach Queue</span>
+              {todayQueueCount > 0 && (
+                <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[10px] text-emerald-400 font-bold border border-emerald-500/30">
+                  {todayQueueCount}
                 </span>
               )}
             </button>
+
             <button
               onClick={() => setActiveTab("pipeline")}
-              className={`rounded-md px-3 py-1.5 transition ${
+              className={`rounded-lg px-3 py-1.5 transition flex items-center gap-1.5 ${
                 activeTab === "pipeline"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-zinc-800 text-white shadow-sm font-semibold"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
               }`}
             >
-              Pipeline
+              <Kanban className="h-3.5 w-3.5 text-blue-400" />
+              <span>Pipeline</span>
             </button>
+
             <button
               onClick={() => setActiveTab("inbox")}
-              className={`rounded-md px-3 py-1.5 transition ${
+              className={`rounded-lg px-3 py-1.5 transition flex items-center gap-1.5 ${
                 activeTab === "inbox"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-zinc-800 text-white shadow-sm font-semibold"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
               }`}
             >
-              Inbox
+              <Inbox className="h-3.5 w-3.5 text-purple-400" />
+              <span>Inbox</span>
             </button>
+
             <button
-              onClick={() => setActiveTab("composer")}
-              className={`rounded-md px-3 py-1.5 transition ${
-                activeTab === "composer"
-                  ? "bg-zinc-800 text-white"
-                  : "text-zinc-400 hover:text-zinc-200"
+              onClick={() => setActiveTab("radar")}
+              className={`rounded-lg px-3 py-1.5 transition flex items-center gap-1.5 ${
+                activeTab === "radar"
+                  ? "bg-zinc-800 text-white shadow-sm font-semibold"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
               }`}
             >
-              Composer
+              <Building2 className="h-3.5 w-3.5 text-zinc-400" />
+              <span>All Agencies</span>
             </button>
+
             {currentUser?.role === "admin" && (
               <button
                 onClick={() => setActiveTab("team")}
-                className={`rounded-md px-3 py-1.5 transition ${
+                className={`rounded-lg px-3 py-1.5 transition flex items-center gap-1.5 ${
                   activeTab === "team"
-                    ? "bg-zinc-800 text-white"
-                    : "text-zinc-400 hover:text-zinc-200"
+                    ? "bg-zinc-800 text-white shadow-sm font-semibold"
+                    : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
                 }`}
               >
-                Team
+                <UserCheck className="h-3.5 w-3.5 text-indigo-400" />
+                <span>Team</span>
               </button>
             )}
           </nav>
         </div>
 
         {/* Header Right Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {/* Autopilot Status Pill */}
           <button
-            onClick={() => setIsSourceModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs text-white hover:bg-zinc-800 transition font-medium shadow-sm"
+            onClick={handleToggleAutopilot}
+            className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              workerStatus?.isActive
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-white"
+            }`}
+            title="Toggle autonomous background research & mining"
           >
-            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-            Source leads
+            <span className="relative flex h-2 w-2">
+              {workerStatus?.isActive && (
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              )}
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${workerStatus?.isActive ? "bg-emerald-500" : "bg-zinc-600"}`}></span>
+            </span>
+            <span>{workerStatus?.isActive ? "Autopilot: 24/7" : "Autopilot: Off"}</span>
           </button>
 
+          {/* Sniper Target Agency Modal Trigger */}
           <button
-            onClick={() => setIsCreatorModalOpen(true)}
-            className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
+            onClick={() => setIsSniperModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-indigo-700/60 bg-indigo-950/40 px-2.5 py-1 text-xs text-indigo-200 hover:bg-indigo-900/60 transition font-medium shadow-sm"
+            title="Target a single agency domain for instant AI research and pitch generation"
           >
-            <Plus className="h-3.5 w-3.5 text-zinc-400" />
-            Find creator
+            <Crosshair className="h-3.5 w-3.5 text-indigo-400" />
+            <span>+ Sniper Agency</span>
+          </button>
+
+          {/* Auto-Source Prospecting Trigger */}
+          <button
+            onClick={() => setIsSourceModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition font-medium shadow-sm"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <span>Auto-Source</span>
           </button>
 
           {currentUser?.role === "admin" && (
             <button
               onClick={() => setIsCsvModalOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition font-medium"
+              className="hidden md:flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-white transition font-medium"
             >
               <Upload className="h-3.5 w-3.5 text-zinc-400" />
-              Import CSV
+              <span>Import CSV</span>
             </button>
           )}
 
-          <span className="text-xs text-zinc-500">
-            {leads.length} leads loaded
-          </span>
-
           {currentUser && (
-            <div className="flex items-center gap-2.5 border-l border-zinc-800/80 pl-3">
+            <div className="flex items-center gap-2 border-l border-zinc-800/80 pl-2.5">
               <div className="flex flex-col text-right">
                 <span className="text-xs font-semibold text-white leading-none">{currentUser.name}</span>
                 <span className="text-[10px] text-zinc-500 capitalize">{currentUser.role}</span>
@@ -670,7 +584,7 @@ export default function ArconDashboard() {
               <button
                 onClick={handleLogout}
                 title="Sign out of Arcon"
-                className="rounded-md p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
+                className="rounded-lg p-1 text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -681,7 +595,167 @@ export default function ArconDashboard() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto p-6 max-w-7xl w-full mx-auto">
-        {/* TAB 1: LEADS (RADAR) */}
+        {/* TAB 1: OUTREACH QUEUE (DEFAULT) */}
+        {activeTab === "review" && (
+          <SalesReviewView
+            currentUser={currentUser}
+            leads={leads}
+            onLeadsUpdated={fetchLeads}
+          />
+        )}
+
+        {/* TAB 2: PIPELINE CRM */}
+        {activeTab === "pipeline" && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-white">Agency Growth Pipeline</h2>
+                <p className="text-xs text-zinc-400">Track and advance high-value agency relationships from first touch to signed partnership.</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <select
+                    value={pipelineRepFilter}
+                    onChange={(e) => setPipelineRepFilter(e.target.value)}
+                    className="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-200 focus:outline-none"
+                  >
+                    <option value="all">All Reps</option>
+                    <option value="deep">Deep Mehta</option>
+                    <option value="sales1">Sales Lead</option>
+                    <option value="sales2">Business Dev</option>
+                  </select>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Filter pipeline..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-48 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-3.5">
+              {CRM_STAGES.map((col) => {
+                const stageLeads = filteredLeads.filter((l) => {
+                  if (col.id === "verified") {
+                    // Treat verified as meeting booked / in-progress
+                    return l.stage === "verified";
+                  }
+                  if (pipelineRepFilter !== "all" && l.assignedTo && l.assignedTo !== pipelineRepFilter) {
+                    return false;
+                  }
+                  return l.stage === col.id;
+                });
+
+                return (
+                  <div
+                    key={col.id}
+                    className="flex flex-col rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-3 min-h-[550px] max-h-[calc(100vh-190px)]"
+                  >
+                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
+                      <span className="text-xs font-semibold text-zinc-300">{col.label}</span>
+                      <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-[11px] font-semibold text-zinc-400">
+                        {stageLeads.length}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                      {stageLeads.length === 0 ? (
+                        <div className="flex h-32 items-center justify-center text-xs text-zinc-600">
+                          Empty stage
+                        </div>
+                      ) : (
+                        stageLeads.map((lead) => (
+                          <div
+                            key={lead.id}
+                            onClick={() => {
+                              setSelectedLead(lead);
+                              setGeneratedSow(null);
+                            }}
+                            className="rounded-lg border border-zinc-800/80 bg-zinc-900/80 p-3 text-xs transition hover:border-zinc-700 hover:bg-zinc-900 cursor-pointer shadow-sm group"
+                          >
+                            <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-1">
+                              <span className="capitalize">{lead.location?.city || "UK / Global"}</span>
+                              <span className="font-semibold text-emerald-400">{lead.score}% ICP</span>
+                            </div>
+
+                            <p className="font-semibold text-zinc-100 group-hover:text-white line-clamp-1">{cleanCompanyName(lead.companyName)}</p>
+                            <p className="text-zinc-400 mt-0.5 line-clamp-1 text-[11px]">
+                              {lead.contactName || "Decision Maker Unknown"}
+                            </p>
+
+                            {lead.emailCandidates[0] && (
+                              <p className="mt-1 text-zinc-500 truncate font-mono text-[10px]">{lead.emailCandidates[0]}</p>
+                            )}
+
+                            <div
+                              className="mt-3 flex items-center justify-between border-t border-zinc-800/80 pt-2 text-[11px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <select
+                                value={lead.stage}
+                                onChange={(e) =>
+                                  handleMoveStage(lead.id, e.target.value as StoredLead["stage"])
+                                }
+                                disabled={actionLoadingId === lead.id}
+                                className="rounded border border-zinc-800 bg-zinc-950 px-1.5 py-0.5 text-zinc-400 focus:outline-none text-[10px]"
+                              >
+                                <option value="researched">Ready</option>
+                                <option value="contacted">Sent</option>
+                                <option value="replied">Replied</option>
+                                <option value="verified">Booked</option>
+                                <option value="sourced">Backlog</option>
+                              </select>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setActiveTab("review");
+                                }}
+                                className="font-medium text-emerald-400 hover:underline text-[11px]"
+                              >
+                                Review Pitch →
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: SHARED INBOX */}
+        {activeTab === "inbox" && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-white">Shared Team Inbox</h2>
+                <p className="text-xs text-zinc-400">Incoming founder replies from Zoho Mail and WhatsApp Webhook.</p>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs text-emerald-400 font-medium">
+                Live IMAP/Webhook Active
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-12 text-center">
+              <Inbox className="mx-auto h-8 w-8 text-zinc-600" />
+              <p className="mt-3 text-sm text-zinc-300 font-medium">All partner conversations are up to date.</p>
+              <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
+                When agency founders reply to your cold email or WhatsApp pitch, the reply triage engine will parse sentiment and display it here with 1-click meeting booking links.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: ALL AGENCIES DIRECTORY (FORMERLY RADAR) */}
         {activeTab === "radar" && (
           <div className="space-y-6">
             {/* Filter and Search Bar */}
@@ -690,13 +764,13 @@ export default function ArconDashboard() {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
                 <input
                   type="text"
-                  placeholder="Search by company, founder, or city..."
+                  placeholder="Search agencies, founders, or cities..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-900/60 py-1.5 pl-9 pr-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+                  className="w-full rounded-md border border-zinc-800 bg-zinc-900/60 py-1.5 pl-9 pr-3 text-xs text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
                 />
               </div>
 
@@ -709,18 +783,11 @@ export default function ArconDashboard() {
                   }}
                   className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 focus:border-zinc-700 focus:outline-none"
                 >
-                  <option value="all">All sources ({sourceCounts.all})</option>
-                  <option value="places">Local Places ({sourceCounts.places})</option>
-                  <option value="show_hn">Show HN ({sourceCounts.showHn})</option>
-                  <option value="yc">Y Combinator ({sourceCounts.yc})</option>
-                  <option value="uk-cloud">UK Cloud ({sourceCounts.ukCloud})</option>
-                  <option value="usa-it">USA IT ({sourceCounts.usaIt})</option>
-                  <option value="clutch">Clutch IT ({sourceCounts.clutch})</option>
-                  <option value="wordpress">WordPress ({sourceCounts.wordpress})</option>
-                  <option value="instagram">Instagram ({sourceCounts.instagram})</option>
-                  <option value="youtube">YouTube ({sourceCounts.youtube})</option>
-                  <option value="linktree">Linktree ({sourceCounts.linktree})</option>
-                  <option value="github">GitHub ({sourceCounts.github})</option>
+                  <option value="all">All sources ({leads.length})</option>
+                  <option value="places">Local Places</option>
+                  <option value="show_hn">Show HN</option>
+                  <option value="yc">Y Combinator</option>
+                  <option value="signal_finder">Sniper Targets</option>
                 </select>
 
                 <select
@@ -732,10 +799,10 @@ export default function ArconDashboard() {
                   className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-300 focus:border-zinc-700 focus:outline-none"
                 >
                   <option value="all">All stages</option>
-                  <option value="sourced">Sourced</option>
-                  <option value="verified">Verified</option>
-                  <option value="researched">Researched</option>
+                  <option value="researched">Ready to Pitch</option>
                   <option value="contacted">Contacted</option>
+                  <option value="replied">Replied</option>
+                  <option value="sourced">Backlog</option>
                 </select>
               </div>
             </div>
@@ -748,29 +815,13 @@ export default function ArconDashboard() {
                   onClick={() => {
                     setSelectedLead(lead);
                     setGeneratedSow(null);
-                    if (lead.emailCandidates?.[0]) {
-                      setTargetEmail(lead.emailCandidates[0]);
-                    }
-                    if (lead.notes && lead.notes.startsWith("Hi ")) {
-                      setComposerText(lead.notes);
-                    }
-                    const properSub = (lead.signalData as any)?.properEmail?.tailoredSubject;
-                    if (properSub) {
-                      setTargetSubject(properSub);
-                    }
                   }}
-                  className="flex flex-col justify-between rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-4 transition hover:border-zinc-600 hover:bg-zinc-900/60 cursor-pointer group"
+                  className="flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4 transition hover:border-zinc-700 hover:bg-zinc-900/70 cursor-pointer group shadow-sm"
                 >
                   <div>
                     <div className="flex items-center justify-between text-xs text-zinc-500">
                       <div className="flex items-center gap-1.5">
-                        {lead.source === "instagram" && <Instagram className="h-3 w-3 text-pink-400" />}
-                        {lead.source === "youtube" && <Youtube className="h-3 w-3 text-red-400" />}
-                        {lead.source === "github" && <Github className="h-3 w-3 text-zinc-300" />}
-                        {lead.source === "linktree" && <Link2 className="h-3 w-3 text-emerald-400" />}
-                        {lead.source === "places" && <MapPin className="h-3 w-3 text-cyan-400" />}
-                        {lead.source === "show_hn" && <Flame className="h-3 w-3 text-orange-400" />}
-                        {lead.source === "yc" && <Building2 className="h-3 w-3 text-amber-400" />}
+                        <MapPin className="h-3 w-3 text-cyan-400" />
                         <span className="capitalize">{lead.source.replace("_", " ")}</span>
                         <span className="text-zinc-600">•</span>
                         <span className="capitalize text-zinc-400">{lead.stage}</span>
@@ -782,7 +833,7 @@ export default function ArconDashboard() {
                       {cleanCompanyName(lead.companyName)}
                     </h3>
                     <p className="text-xs text-zinc-400 line-clamp-1 mt-0.5">
-                      {lead.headline || "Technology Services"}
+                      {lead.headline || "Boutique Digital & Web Agency"}
                     </p>
 
                     <div className="mt-3 space-y-1 text-xs text-zinc-300">
@@ -795,18 +846,12 @@ export default function ArconDashboard() {
                       {lead.emailCandidates[0] && (
                         <div className="flex items-center gap-1.5 text-zinc-400">
                           <Mail className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                          <span className="truncate">{lead.emailCandidates[0]}</span>
-                        </div>
-                      )}
-                      {lead.phone && (
-                        <div className="flex items-center gap-1.5 text-zinc-400">
-                          <Phone className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                          <span className="truncate">{lead.phone}</span>
+                          <span className="truncate font-mono text-[11px]">{lead.emailCandidates[0]}</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Live Technical Audit Badges if Researched */}
+                    {/* TTFB / DMARC Technical Badges if Available */}
                     {Boolean(lead.signalData?.dossier) && (
                       <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[10px]">
                         {(lead.signalData!.dossier as any).technicalAudit?.dmarc?.policy === "reject" ||
@@ -834,28 +879,15 @@ export default function ArconDashboard() {
                       Score: <strong className="text-zinc-300">{lead.score}%</strong>
                     </span>
 
-                    <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-                      {lead.emailCandidates.length > 0 && lead.verificationStatus !== "socket_valid" && (
-                        <button
-                          onClick={() => handleVerify(lead)}
-                          disabled={actionLoadingId === lead.id}
-                          className="text-zinc-400 hover:text-white transition"
-                        >
-                          {actionLoadingId === lead.id ? "Checking..." : "Verify"}
-                        </button>
-                      )}
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => handleResearch(lead)}
-                        disabled={actionLoadingId === lead.id}
-                        className="text-zinc-400 hover:text-white transition"
+                        onClick={() => {
+                          setSelectedLead(lead);
+                          setActiveTab("review");
+                        }}
+                        className="font-medium text-emerald-400 hover:text-emerald-300 transition flex items-center gap-0.5"
                       >
-                        Research
-                      </button>
-                      <button
-                        onClick={() => handleComposeForLead(lead)}
-                        className="font-medium text-white hover:underline flex items-center gap-0.5"
-                      >
-                        Pitch <ArrowRight className="h-3 w-3" />
+                        Pitch Agency <ArrowRight className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
@@ -893,738 +925,87 @@ export default function ArconDashboard() {
           </div>
         )}
 
-        {/* TAB 2: PIPELINE (KANBAN) */}
-        {activeTab === "pipeline" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-white">Pipeline</h2>
-                <p className="text-xs text-zinc-400">Track and advance leads across four stages.</p>
-              </div>
-
-              <input
-                type="text"
-                placeholder="Search pipeline..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-56 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {STAGES.map((col) => {
-                const stageLeads = filteredLeads.filter((l) => l.stage === col.id);
-                return (
-                  <div
-                    key={col.id}
-                    className="flex flex-col rounded-lg border border-zinc-800 bg-zinc-900/30 p-3 min-h-[550px] max-h-[calc(100vh-190px)]"
-                  >
-                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2 mb-3">
-                      <span className="text-xs font-medium text-zinc-300">{col.label}</span>
-                      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[11px] font-medium text-zinc-400">
-                        {stageLeads.length}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                      {stageLeads.length === 0 ? (
-                        <div className="flex h-32 items-center justify-center text-xs text-zinc-600">
-                          No leads in this stage
-                        </div>
-                      ) : (
-                        stageLeads.map((lead) => (
-                          <div
-                            key={lead.id}
-                            onClick={() => {
-                              setSelectedLead(lead);
-                              setGeneratedSow(null);
-                            }}
-                            className="rounded-md border border-zinc-800 bg-zinc-900/70 p-3 text-xs transition hover:border-zinc-600 cursor-pointer"
-                          >
-                            <p className="font-semibold text-zinc-100 line-clamp-1">{cleanCompanyName(lead.companyName)}</p>
-                            <p className="text-zinc-400 mt-0.5 line-clamp-1">
-                              {lead.contactName || "Contact unknown"}
-                            </p>
-
-                            {lead.emailCandidates[0] && (
-                              <p className="mt-1 text-zinc-500 truncate">{lead.emailCandidates[0]}</p>
-                            )}
-
-                            <div
-                              className="mt-3 flex items-center justify-between border-t border-zinc-800/80 pt-2 text-[11px]"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <select
-                                value={lead.stage}
-                                onChange={(e) =>
-                                  handleMoveStage(lead.id, e.target.value as StoredLead["stage"])
-                                }
-                                disabled={actionLoadingId === lead.id}
-                                className="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-zinc-400 focus:outline-none"
-                              >
-                                <option value="sourced">Sourced</option>
-                                <option value="verified">Verified</option>
-                                <option value="researched">Researched</option>
-                                <option value="contacted">Contacted</option>
-                              </select>
-
-                              <button
-                                onClick={() => handleComposeForLead(lead)}
-                                className="font-medium text-white hover:underline"
-                              >
-                                Pitch →
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: INBOX */}
-        {activeTab === "inbox" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-white">Inbox</h2>
-              <p className="text-xs text-zinc-400">Incoming replies from Email and WhatsApp.</p>
-            </div>
-
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-12 text-center">
-              <Inbox className="mx-auto h-8 w-8 text-zinc-600" />
-              <p className="mt-3 text-sm text-zinc-300 font-medium">All inboxes are up to date.</p>
-              <p className="text-xs text-zinc-500 mt-1">Incoming replies will appear here automatically.</p>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: COMPOSER */}
-        {activeTab === "composer" && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-white">Outbound Composer</h2>
-              <p className="text-xs text-zinc-400">Personalized B2B outreach tailored to decision makers with verified mailbox delivery.</p>
-            </div>
-
-            {sendSuccess && (
-              <div className="flex items-center gap-2 rounded-md bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs text-emerald-400">
-                <CheckCircle2 className="h-4 w-4" />
-                {sendSuccess}
-              </div>
-            )}
-
-            {sendError && (
-              <div className="flex items-center gap-2 rounded-md bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-400">
-                <AlertTriangle className="h-4 w-4 shrink-0" />
-                {sendError}
-              </div>
-            )}
-
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-5 space-y-4">
-              <div>
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-zinc-400">Dispatch Rep (From Mailbox)</label>
-                  <span className="text-[10px] text-zinc-500 font-mono">Zoho Mail Auth (DKIM/SPF)</span>
-                </div>
-                <select
-                  value={selectedSenderEmail}
-                  onChange={(e) => setSelectedSenderEmail(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none"
-                >
-                  {TEAM_SENDERS.map((rep) => (
-                    <option key={rep.id} value={rep.email}>
-                      {rep.name} &lt;{rep.email}&gt; • {rep.role}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  Sends via verified 3 Dices domain with zero bounce risk and 1-click delivery.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-zinc-400">Recipient</label>
-                <input
-                  type="email"
-                  value={targetEmail}
-                  onChange={(e) => setTargetEmail(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-zinc-400">Subject</label>
-                <input
-                  type="text"
-                  value={targetSubject}
-                  onChange={(e) => setTargetSubject(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-zinc-400">Body</label>
-                <textarea
-                  rows={4}
-                  value={composerText}
-                  onChange={(e) => setComposerText(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-zinc-800 bg-zinc-900 p-3 text-xs text-zinc-100 focus:border-zinc-600 focus:outline-none leading-relaxed"
-                />
-              </div>
-
-              <div className="flex items-center justify-between border-t border-zinc-800 pt-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <span className="text-zinc-400">
-                    Word count: <strong className="text-zinc-200">{totalWords} words</strong>
-                  </span>
-                  <span className="text-zinc-600">•</span>
-                  <span className="text-emerald-400 flex items-center gap-1 text-[11px]">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    B2B Outreach Ready
-                  </span>
-                </div>
-
-                <button
-                  disabled={sendingEmail || !composerText.trim() || !targetEmail.trim()}
-                  onClick={handleSendTouch}
-                  className="flex items-center gap-1.5 rounded-md bg-white px-3.5 py-1.5 font-medium text-xs text-zinc-950 transition hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {sendingEmail && <RefreshCw className="h-3 w-3 animate-spin" />}
-                  {sendingEmail ? "Dispatching..." : "Send email"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: SALES REVIEW & OUTREACH QUEUE */}
-        {activeTab === "review" && (
-          <SalesReviewView
-            currentUser={currentUser}
-            leads={leads}
-            onLeadsUpdated={fetchLeads}
-          />
-        )}
-
-        {/* TAB 5: TEAM & RBAC MANAGEMENT */}
+        {/* TAB 5: TEAM MANAGEMENT */}
         {activeTab === "team" && (
           <TeamManagementView currentUser={currentUser} />
         )}
       </main>
 
-      {/* FULL-DETAIL SLIDE-OVER DRAWER FOR SELECTED LEAD */}
+      {/* LEAD DETAIL SLIDE-OVER DRAWER */}
       {selectedLead && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-            onClick={() => {
-              setSelectedLead(null);
-              setGeneratedSow(null);
-            }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSelectedLead(null)}
           />
-
-          {/* Slide-over Sheet */}
-          <div className="relative w-full max-w-xl bg-zinc-950 border-l border-zinc-800 p-6 shadow-2xl flex flex-col justify-between overflow-y-auto z-10">
-            <div className="space-y-6">
-              {/* Header */}
+          <div className="relative w-full max-w-xl bg-zinc-950 border-l border-zinc-800 p-6 shadow-2xl flex flex-col justify-between overflow-y-auto z-10 space-y-6">
+            <div className="space-y-4">
               <div className="flex items-start justify-between border-b border-zinc-800/80 pb-4">
                 <div>
-                  <div className="flex items-center gap-2 text-xs text-zinc-400 mb-1">
-                    <span className="rounded bg-zinc-900 border border-zinc-800 px-2 py-0.5 capitalize">
-                      {selectedLead.source.replace("_", " ")}
-                    </span>
-                    {selectedLead.verificationStatus === "socket_valid" && (
-                      <span className="rounded bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-blue-400">
-                        Socket Verified
-                      </span>
-                    )}
-                  </div>
                   <h2 className="text-lg font-bold text-white">{cleanCompanyName(selectedLead.companyName)}</h2>
                   <p className="text-xs text-zinc-400 mt-0.5">{selectedLead.headline}</p>
                 </div>
-
                 <button
-                  onClick={() => {
-                    setSelectedLead(null);
-                    setGeneratedSow(null);
-                  }}
-                  className="rounded-md p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-900 transition"
+                  onClick={() => setSelectedLead(null)}
+                  className="rounded-lg p-1 text-zinc-400 hover:text-white"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
 
-              {/* Status and Score Row */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-                  <span className="text-[11px] text-zinc-500 block">Pipeline Stage</span>
-                  <select
-                    value={selectedLead.stage}
-                    onChange={(e) =>
-                      handleMoveStage(selectedLead.id, e.target.value as StoredLead["stage"])
-                    }
-                    disabled={actionLoadingId === selectedLead.id}
-                    className="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 focus:outline-none font-medium capitalize"
+              {/* Contact info */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-2 text-xs">
+                <span className="font-semibold text-zinc-300 uppercase tracking-wider text-[11px]">Executive Contact</span>
+                <div className="flex items-center justify-between text-zinc-200">
+                  <span>Name:</span>
+                  <span className="font-medium text-white">{selectedLead.contactName || "Undisclosed"}</span>
+                </div>
+                <div className="flex items-center justify-between text-zinc-200">
+                  <span>Email:</span>
+                  <span className="font-mono text-zinc-300">{selectedLead.emailCandidates[0] || "None"}</span>
+                </div>
+                {selectedLead.websiteUrl && (
+                  <div className="flex items-center justify-between text-zinc-200">
+                    <span>Website:</span>
+                    <a
+                      href={selectedLead.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-400 hover:underline flex items-center gap-1"
+                    >
+                      {selectedLead.websiteUrl} <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* SOW Commercial Generator */}
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-zinc-300 text-xs">White-Label Partner Proposal (SOW)</span>
+                  <button
+                    onClick={() => handleGenerateProposal(selectedLead)}
+                    disabled={sowLoading}
+                    className="flex items-center gap-1 rounded bg-zinc-800 px-2.5 py-1 text-xs text-zinc-200 hover:bg-zinc-700 disabled:opacity-40"
                   >
-                    <option value="sourced">Sourced</option>
-                    <option value="verified">Verified</option>
-                    <option value="researched">Researched</option>
-                    <option value="contacted">Contacted</option>
-                  </select>
+                    {sowLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                    {sowLoading ? "Synthesizing..." : "Generate Proposal"}
+                  </button>
                 </div>
 
-                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-                  <span className="text-[11px] text-zinc-500 block">5-Factor Rubric Score</span>
-                  <div className="mt-1 flex items-center justify-between">
-                    <span className="text-base font-bold text-white">{selectedLead.score}%</span>
-                    <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded ${
-                        selectedLead.score >= 70
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "bg-zinc-800 text-zinc-400"
-                      }`}
-                    >
-                      {selectedLead.score >= 70 ? "Qualified" : "Developing"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Technical Audit & Diagnostic Facts */}
-              {Boolean(selectedLead.signalData?.dossier) && (
-                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                      <Server className="h-3.5 w-3.5 text-zinc-400" />
-                      Real-Time Technical Audit
-                    </h4>
-                    <span className="text-[10px] text-zinc-500 font-mono">
-                      Domain: {(selectedLead.signalData?.dossier as any).domain || "Audited"}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded border border-zinc-800/80 bg-zinc-950/60 p-2.5">
-                      <span className="text-zinc-500 text-[11px] block">DMARC Security Policy</span>
-                      <div className="mt-1 flex items-center gap-1.5">
-                        {(selectedLead.signalData?.dossier as any).technicalAudit?.dmarc?.policy === "reject" ||
-                        (selectedLead.signalData?.dossier as any).technicalAudit?.dmarc?.policy === "quarantine" ? (
-                          <span className="text-emerald-400 font-medium flex items-center gap-1">
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Enforced ({(selectedLead.signalData?.dossier as any).technicalAudit?.dmarc?.policy})
-                          </span>
-                        ) : (
-                          <span className="text-amber-400 font-medium flex items-center gap-1">
-                            <AlertTriangle className="h-3.5 w-3.5" /> {(selectedLead.signalData?.dossier as any).technicalAudit?.dmarc?.policy || "Missing (Spoof Risk)"}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded border border-zinc-800/80 bg-zinc-950/60 p-2.5">
-                      <span className="text-zinc-500 text-[11px] block">Server Latency (TTFB)</span>
-                      <div className="mt-1 flex items-center gap-1.5 font-mono text-zinc-200">
-                        <Zap className="h-3.5 w-3.5 text-amber-400" />
-                        <span>{(selectedLead.signalData?.dossier as any).technicalAudit?.serverHealth?.ttfbMs || 0} ms</span>
-                        <span className="text-[10px] text-zinc-500 font-sans">
-                          (HTTP {(selectedLead.signalData?.dossier as any).technicalAudit?.serverHealth?.status || 200})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Resolved MX Servers */}
-                  {Array.isArray((selectedLead.signalData?.dossier as any).technicalAudit?.dns?.mx) &&
-                    (selectedLead.signalData?.dossier as any).technicalAudit.dns.mx.length > 0 && (
-                      <div className="border-t border-zinc-800/80 pt-2 text-[11px]">
-                        <span className="text-zinc-500 block mb-1">Mail Servers (MX)</span>
-                        <div className="flex flex-wrap gap-1">
-                          {(selectedLead.signalData?.dossier as any).technicalAudit.dns.mx.map(
-                            (m: { exchange: string; priority: number }, i: number) => (
-                              <span
-                                key={i}
-                                className="rounded bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-zinc-300 font-mono text-[10px]"
-                              >
-                                {m.exchange} ({m.priority})
-                              </span>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                  {/* 5-Factor Rubric Breakdown */}
-                  {(selectedLead.signalData?.dossier as any).qualification?.breakdown && (
-                    <div className="border-t border-zinc-800/80 pt-2.5 space-y-1.5 text-[11px]">
-                      <span className="text-zinc-400 font-medium block mb-1">5-Factor Rubric Breakdown</span>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-zinc-400">
-                        <div className="flex justify-between">
-                          <span>Pain Point Severity:</span>
-                          <span className="text-zinc-200 font-medium">
-                            {(selectedLead.signalData?.dossier as any).qualification.breakdown.painPointSeverity}/25
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Budget Authority:</span>
-                          <span className="text-zinc-200 font-medium">
-                            {(selectedLead.signalData?.dossier as any).qualification.breakdown.budgetAuthority}/20
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Technical Fit:</span>
-                          <span className="text-zinc-200 font-medium">
-                            {(selectedLead.signalData?.dossier as any).qualification.breakdown.technicalFit}/20
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Urgency Signals:</span>
-                          <span className="text-zinc-200 font-medium">
-                            {(selectedLead.signalData?.dossier as any).qualification.breakdown.urgencySignals}/20
-                          </span>
-                        </div>
-                        <div className="flex justify-between col-span-2">
-                          <span>Decision-Maker Accessibility:</span>
-                          <span className="text-zinc-200 font-medium">
-                            {(selectedLead.signalData?.dossier as any).qualification.breakdown.decisionMakerAccessibility}/15
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Decision Maker & Contact */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Decision Maker & Authority
-                </h4>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-500">Contact Person</span>
-                    <span className="font-medium text-white">{selectedLead.contactName || "Undisclosed"}</span>
-                  </div>
-                  {selectedLead.socialUrls.linkedin && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-zinc-500">LinkedIn Profile</span>
-                      <a
-                        href={selectedLead.socialUrls.linkedin}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-zinc-300 hover:text-white underline flex items-center gap-1"
-                      >
-                        Company LinkedIn <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
-                  {Boolean(selectedLead.signalData?.decisionMakerLinkedin) && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-zinc-500">Executive LinkedIn</span>
-                      <a
-                        href={String(selectedLead.signalData?.decisionMakerLinkedin).split(";")[0]}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-zinc-300 hover:text-white underline flex items-center gap-1"
-                      >
-                        Profile Link <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Direct Communications & Verification */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                    Communication Endpoints
-                  </h4>
-                  {selectedLead.emailCandidates.length > 0 && (
-                    <button
-                      onClick={() => handleVerify(selectedLead)}
-                      disabled={actionLoadingId === selectedLead.id}
-                      className="text-xs font-medium text-zinc-300 hover:text-white underline flex items-center gap-1"
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      {actionLoadingId === selectedLead.id ? "Checking..." : "Verify Socket"}
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  <div>
-                    <span className="text-zinc-500 block mb-1">Email Addresses</span>
-                    {selectedLead.emailCandidates.length === 0 ? (
-                      <span className="text-zinc-600 italic">No email found</span>
-                    ) : (
-                      <div className="space-y-1">
-                        {selectedLead.emailCandidates.map((email, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between rounded bg-zinc-900 px-2.5 py-1.5 text-zinc-300"
-                          >
-                            <span className="font-mono text-[11px]">{email}</span>
-                            <span className="text-[10px] text-zinc-500 uppercase">
-                              {i === 0 && selectedLead.verificationStatus === "socket_valid"
-                                ? "Verified"
-                                : "Candidate"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedLead.phone && (
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                      <span className="text-zinc-500">Phone Number</span>
-                      <span className="font-mono text-zinc-200">{selectedLead.phone}</span>
-                    </div>
-                  )}
-
-                  {selectedLead.websiteUrl && (
-                    <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                      <span className="text-zinc-500">Website</span>
-                      <a
-                        href={selectedLead.websiteUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-zinc-300 hover:text-white underline flex items-center gap-1"
-                      >
-                        {selectedLead.websiteUrl.replace(/^https?:\/\//, "")}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Connected Channels & Social Endpoints */}
-                  {Object.keys(selectedLead.socialUrls).length > 0 && (
-                    <div className="pt-2 border-t border-zinc-800/80">
-                      <span className="text-zinc-500 block mb-1.5">Connected Channels</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedLead.socialUrls.instagram && (
-                          <a
-                            href={selectedLead.socialUrls.instagram}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 rounded bg-zinc-900 border border-zinc-800 px-2 py-1 text-[11px] text-pink-400 hover:text-white transition"
-                          >
-                            <Instagram className="h-3 w-3" /> Instagram
-                          </a>
-                        )}
-                        {selectedLead.socialUrls.youtube && (
-                          <a
-                            href={selectedLead.socialUrls.youtube}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 rounded bg-zinc-900 border border-zinc-800 px-2 py-1 text-[11px] text-red-400 hover:text-white transition"
-                          >
-                            <Youtube className="h-3 w-3" /> YouTube
-                          </a>
-                        )}
-                        {selectedLead.socialUrls.linktree && (
-                          <a
-                            href={selectedLead.socialUrls.linktree}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 rounded bg-zinc-900 border border-zinc-800 px-2 py-1 text-[11px] text-emerald-400 hover:text-white transition"
-                          >
-                            <Link2 className="h-3 w-3" /> Linktree
-                          </a>
-                        )}
-                        {selectedLead.socialUrls.github && (
-                          <a
-                            href={selectedLead.socialUrls.github}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex items-center gap-1 rounded bg-zinc-900 border border-zinc-800 px-2 py-1 text-[11px] text-zinc-200 hover:text-white transition"
-                          >
-                            <Github className="h-3 w-3" /> GitHub
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Location & Firmographics */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-2 text-xs">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Location & Metadata
-                </h4>
-                {selectedLead.location?.rawAddress && (
-                  <div className="flex items-start gap-2 text-zinc-300">
-                    <MapPin className="h-4 w-4 text-zinc-500 shrink-0 mt-0.5" />
-                    <span>{selectedLead.location.rawAddress}</span>
-                  </div>
-                )}
-                <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                  <span className="text-zinc-500">Region</span>
-                  <span>{selectedLead.location?.city ? `${selectedLead.location.city}, ` : ""}{selectedLead.location?.country || "Global"}</span>
-                </div>
-                {Boolean(selectedLead.signalData?.rating) && (
-                  <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                    <span className="text-zinc-500">Google / Clutch Rating</span>
-                    <span className="flex items-center gap-1 font-semibold text-zinc-200">
-                      <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-                      {String(selectedLead.signalData?.rating).slice(0, 3)} ({String(selectedLead.signalData?.reviews || 0)} reviews)
-                    </span>
-                  </div>
-                )}
-                {Boolean(selectedLead.signalData?.subscribers) && (
-                  <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                    <span className="text-zinc-500">Audience / Subscribers</span>
-                    <span className="font-semibold text-zinc-200">{String(selectedLead.signalData?.subscribers)}</span>
-                  </div>
-                )}
-                {Boolean(selectedLead.signalData?.followers) && (
-                  <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                    <span className="text-zinc-500">Followers</span>
-                    <span className="font-semibold text-zinc-200">{String(selectedLead.signalData?.followers)}</span>
-                  </div>
-                )}
-                {Boolean(selectedLead.signalData?.publicRepos) && (
-                  <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80">
-                    <span className="text-zinc-500">Public Repositories</span>
-                    <span className="font-semibold text-zinc-200">{String(selectedLead.signalData?.publicRepos)}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Brand Research & Verified B2B Outreach */}
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4 space-y-3 text-xs">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                    Brand Research & B2B Outreach
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleResearch(selectedLead)}
-                      disabled={actionLoadingId === selectedLead.id}
-                      className="flex items-center gap-1 text-xs font-semibold text-white bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded transition"
-                    >
-                      <Sparkles className="h-3 w-3 text-amber-400" />
-                      {actionLoadingId === selectedLead.id ? "Researching Brand..." : "Research Brand & Decision Maker"}
-                    </button>
-                    <button
-                      onClick={() => handleGenerateProposal(selectedLead)}
-                      disabled={sowLoading}
-                      className="text-xs font-medium text-zinc-400 hover:text-white underline flex items-center gap-1"
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      {sowLoading ? "Drafting SOW..." : "SOW"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Brand Overview & Value Proposition */}
-                {Boolean(selectedLead.signalData?.dossier) ? (
-                  <div className="space-y-3">
-                    <div className="rounded bg-zinc-950/80 border border-zinc-800/80 p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-zinc-200">Brand Overview & Proposition</span>
-                        <span className="text-[10px] text-zinc-500 font-mono">
-                          {(selectedLead.signalData?.dossier as any).company?.domain}
-                        </span>
-                      </div>
-                      <p className="text-zinc-300 leading-relaxed text-[11px]">
-                        {(selectedLead.signalData?.dossier as any).company?.description}
-                      </p>
-                      {Array.isArray((selectedLead.signalData?.dossier as any).company?.techStack) &&
-                        (selectedLead.signalData?.dossier as any).company.techStack.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {(selectedLead.signalData?.dossier as any).company.techStack.map(
-                              (tech: string, i: number) => (
-                                <span
-                                  key={i}
-                                  className="rounded bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400"
-                                >
-                                  {tech}
-                                </span>
-                              )
-                            )}
-                          </div>
-                        )}
-                    </div>
-
-                    {/* Discovered Decision Maker */}
-                    <div className="rounded bg-zinc-950/80 border border-zinc-800/80 p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-zinc-200">Verified Decision Maker</span>
-                        <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                          <CheckCircle2 className="h-3 w-3" /> Socket Verified
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div>
-                          <p className="font-semibold text-white">
-                            {(selectedLead.signalData?.dossier as any).decisionMaker?.fullName || selectedLead.contactName}
-                          </p>
-                          <p className="text-zinc-400 text-[11px]">
-                            {(selectedLead.signalData?.dossier as any).decisionMaker?.role || "Founder & Leadership"}
-                          </p>
-                        </div>
-                        <span className="font-mono text-zinc-300 text-[11px] bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
-                          {(selectedLead.signalData?.dossier as any).decisionMaker?.email || selectedLead.emailCandidates[0]}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Drafted B2B Outreach Email */}
-                    <div className="rounded bg-zinc-950/80 border border-zinc-800/80 p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-zinc-200">Tailored B2B Outreach Draft</span>
-                        <button
-                          onClick={() => handleComposeForLead(selectedLead)}
-                          className="text-[11px] font-medium text-white hover:underline flex items-center gap-1"
-                        >
-                          Load into Composer →
-                        </button>
-                      </div>
-                      <div className="border-b border-zinc-800/60 pb-1.5">
-                        <span className="text-zinc-500 text-[11px]">Subject: </span>
-                        <span className="text-zinc-200 font-medium text-[11px]">
-                          {(selectedLead.signalData?.dossier as any).recommendedOutreach?.tailoredSubject ||
-                            `Question regarding ${selectedLead.companyName}'s cloud infrastructure`}
-                        </span>
-                      </div>
-                      <div className="text-zinc-300 whitespace-pre-wrap leading-relaxed font-sans text-[11px] bg-zinc-900/60 p-2.5 rounded border border-zinc-800/40">
-                        {selectedLead.notes || (selectedLead.signalData?.dossier as any).recommendedOutreach?.tailoredBody}
-                      </div>
-                    </div>
-                  </div>
-                ) : selectedLead.notes ? (
-                  <p className="rounded bg-zinc-900 p-3 text-zinc-300 leading-relaxed font-sans text-xs border border-zinc-800">
-                    {selectedLead.notes}
-                  </p>
-                ) : (
-                  <div className="p-4 text-center rounded border border-zinc-800/60 bg-zinc-900/20 space-y-2">
-                    <p className="text-zinc-400 text-xs font-medium">No brand research generated yet.</p>
-                    <p className="text-zinc-500 text-[11px]">
-                      Click "Research Brand & Decision Maker" to scrape brand value proposition, find executive email, verify it via socket, and draft a high-converting outreach email.
-                    </p>
-                  </div>
-                )}
-
-                {/* Generated SOW Preview */}
                 {generatedSow && (
-                  <div className="mt-3 rounded border border-zinc-800 bg-zinc-900 p-3 space-y-2">
-                    <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                      <span className="font-semibold text-zinc-200 text-xs">Statement of Work (SOW)</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-emerald-400 font-medium">✓ Proposal Ready</span>
                       <button
                         onClick={handleCopySow}
-                        className="text-xs font-medium text-zinc-300 hover:text-white flex items-center gap-1"
+                        className="text-xs text-indigo-400 hover:underline flex items-center gap-1"
                       >
-                        {copiedSow ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                        {copiedSow ? "Copied" : "Copy markdown"}
+                        {copiedSow ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedSow ? "Copied!" : "Copy Markdown"}
                       </button>
                     </div>
-                    <pre className="text-[11px] text-zinc-300 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono leading-relaxed">
+                    <pre className="max-h-60 overflow-y-auto rounded bg-zinc-950 p-3 text-[11px] text-zinc-300 font-mono whitespace-pre-wrap leading-relaxed border border-zinc-800">
                       {generatedSow}
                     </pre>
                   </div>
@@ -1632,266 +1013,185 @@ export default function ArconDashboard() {
               </div>
             </div>
 
-            {/* Bottom Sticky Action Footer */}
-            <div className="mt-6 pt-4 border-t border-zinc-800 flex items-center justify-between">
-              <span className="text-xs text-zinc-500">ID: {selectedLead.id.slice(0, 8)}...</span>
+            <div className="pt-4 border-t border-zinc-800 flex justify-end">
               <button
-                onClick={() => handleComposeForLead(selectedLead)}
-                className="flex items-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition"
+                onClick={() => {
+                  setSelectedLead(null);
+                  setActiveTab("review");
+                }}
+                className="flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-xs font-semibold text-zinc-950 transition"
               >
-                <Send className="h-3.5 w-3.5" />
-                Draft Pitch in Composer
+                <span>Open in Outreach Queue</span>
+                <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* AUTONOMOUS LEAD SOURCING MODAL */}
-      {isSourceModalOpen && (
+      {/* SNIPER AGENCY MODAL */}
+      {isSniperModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => {
-              if (!sourceLoading) {
-                setIsSourceModalOpen(false);
-                setSourceError(null);
-              }
-            }}
+            onClick={() => !sniperLoading && setIsSniperModalOpen(false)}
           />
-
-          <div className="relative w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-5">
+          <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-4">
             <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-amber-400" />
-                  <h3 className="text-base font-semibold text-white">Source Leads</h3>
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Crosshair className="h-5 w-5" />
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Autonomous lead mining across local places, Show HN launches, and Y Combinator.
-                </p>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Target Specific Agency</h3>
+                  <p className="text-xs text-zinc-400">Instant AI crawl, audit & tailored pitch generation.</p>
+                </div>
               </div>
               <button
-                onClick={() => setIsSourceModalOpen(false)}
-                disabled={sourceLoading}
-                className="rounded-md p-1 text-zinc-400 hover:text-white transition"
+                onClick={() => setIsSniperModalOpen(false)}
+                disabled={sniperLoading}
+                className="rounded-lg p-1 text-zinc-400 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Sourcing Channel Selector */}
-            <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-1">
-              <button
-                type="button"
-                onClick={() => setSourceChannel("places")}
-                className={`flex items-center justify-center gap-1.5 rounded py-2 text-xs font-medium transition ${
-                  sourceChannel === "places"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <MapPin className="h-3.5 w-3.5 text-cyan-400" />
-                Google / Places
-              </button>
+            <form onSubmit={handleSniperSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                  Agency Website URL <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  autoFocus
+                  value={sniperUrl}
+                  onChange={(e) => setSniperUrl(e.target.value)}
+                  placeholder="e.g. weareenvoy.com or https://studiomilk.co.uk"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setSourceChannel("show_hn")}
-                className={`flex items-center justify-center gap-1.5 rounded py-2 text-xs font-medium transition ${
-                  sourceChannel === "show_hn"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Flame className="h-3.5 w-3.5 text-orange-400" />
-                Show HN Stream
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Decision Maker Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={sniperContactName}
+                    onChange={(e) => setSniperContactName(e.target.value)}
+                    placeholder="e.g. Marcus Gitau"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-700 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">
+                    Agency Archetype
+                  </label>
+                  <select
+                    value={sniperArchetype}
+                    onChange={(e) => setSniperArchetype(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:border-zinc-700 focus:outline-none"
+                  >
+                    <option value="Creative Studio">Creative Studio</option>
+                    <option value="Dev Shop">Dev Shop</option>
+                    <option value="E-Commerce / Shopify">E-Commerce</option>
+                    <option value="WordPress / CMS">WordPress Agency</option>
+                  </select>
+                </div>
+              </div>
 
+              {sniperError && (
+                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>{sniperError}</span>
+                </div>
+              )}
+
+              {sniperSuccess && (
+                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span>{sniperSuccess}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+                <button
+                  type="button"
+                  onClick={() => setIsSniperModalOpen(false)}
+                  disabled={sniperLoading}
+                  className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sniperLoading || !sniperUrl.trim()}
+                  className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
+                >
+                  {sniperLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
+                  {sniperLoading ? "Researching Agency..." : "Scrape & Generate Pitch"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* AUTO-SOURCE MODAL */}
+      {isSourceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => !sourceLoading && setIsSourceModalOpen(false)}
+          />
+          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Auto-Source New Agency Leads</h3>
+                <p className="text-xs text-zinc-400">Mine high-intent digital agencies from worldwide tech hubs.</p>
+              </div>
               <button
-                type="button"
-                onClick={() => setSourceChannel("yc")}
-                className={`flex items-center justify-center gap-1.5 rounded py-2 text-xs font-medium transition ${
-                  sourceChannel === "yc"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
+                onClick={() => setIsSourceModalOpen(false)}
+                disabled={sourceLoading}
+                className="rounded-lg p-1 text-zinc-400 hover:text-white"
               >
-                <Building2 className="h-3.5 w-3.5 text-amber-400" />
-                YC Startups
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSourceLeads} className="space-y-4">
-              {sourceChannel === "places" && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-300 mb-1">
-                        Industry / Keyword
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={sourceKeyword}
-                        onChange={(e) => setSourceKeyword(e.target.value)}
-                        placeholder="e.g. Cloud Consulting"
-                        className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-300 mb-1">
-                        Target City
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={sourceCity}
-                        onChange={(e) => setSourceCity(e.target.value)}
-                        placeholder="e.g. London, Mumbai, San Francisco"
-                        className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mr-1">3 Dices Targets:</span>
-                    {["SaaS", "Fintech", "Cloud Consulting", "Software Agency", "E-commerce"].map((kw) => (
-                      <button
-                        key={kw}
-                        type="button"
-                        onClick={() => setSourceKeyword(kw)}
-                        className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
-                          sourceKeyword === kw
-                            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                        }`}
-                      >
-                        {kw}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-zinc-500">
-                    Mines verified business locations, contact info, and website URLs via OpenStreetMap Overpass geocoding ($0 API fees).
-                  </p>
+            <form onSubmit={handleSourceLeads} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Target City</label>
+                  <input
+                    type="text"
+                    value={sourceCity}
+                    onChange={(e) => setSourceCity(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:outline-none"
+                  />
                 </div>
-              )}
-
-              {sourceChannel === "show_hn" && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-300 mb-1">
-                      Launch Search Topic / Query
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={sourceKeyword}
-                      onChange={(e) => setSourceKeyword(e.target.value)}
-                      placeholder="e.g. AI Agent or Cloud or Kubernetes"
-                      className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mr-1">3 Dices Targets:</span>
-                    {["AI Agent", "LLM", "AWS", "Kubernetes", "DevOps", "Database"].map((kw) => (
-                      <button
-                        key={kw}
-                        type="button"
-                        onClick={() => setSourceKeyword(kw)}
-                        className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
-                          sourceKeyword === kw
-                            ? "bg-orange-500/20 text-orange-300 border border-orange-500/40"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                        }`}
-                      >
-                        {kw}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-zinc-500">
-                    Pulls recent real-time product launches from Hacker News via Algolia. High-intent technical founders actively reading feedback.
-                  </p>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1">Keyword</label>
+                  <input
+                    type="text"
+                    value={sourceKeyword}
+                    onChange={(e) => setSourceKeyword(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white focus:outline-none"
+                  />
                 </div>
-              )}
-
-              {sourceChannel === "yc" && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-300 mb-1">
-                        YC Batch
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={sourceBatch}
-                        onChange={(e) => setSourceBatch(e.target.value)}
-                        placeholder="e.g. W24, S23, W23"
-                        className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-300 mb-1">
-                        Domain / Tag Filter (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={sourceKeyword}
-                        onChange={(e) => setSourceKeyword(e.target.value)}
-                        placeholder="e.g. AI, B2B, Fintech"
-                        className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider mr-1">3 Dices Targets:</span>
-                    {["AI", "DevOps", "B2B", "Fintech", "Security"].map((kw) => (
-                      <button
-                        key={kw}
-                        type="button"
-                        onClick={() => setSourceKeyword(kw)}
-                        className={`rounded px-2 py-0.5 text-[10px] font-medium transition ${
-                          sourceKeyword === kw
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white"
-                        }`}
-                      >
-                        {kw}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-zinc-500">
-                    Mines funded startup profiles, founders, and business propositions from the official YC directory.
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs text-zinc-400">Limit:</label>
-                  <select
-                    value={sourceLimit}
-                    onChange={(e) => setSourceLimit(Number(e.target.value))}
-                    className="rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs text-zinc-200 focus:outline-none"
-                  >
-                    <option value={10}>10 leads</option>
-                    <option value={15}>15 leads</option>
-                    <option value={25}>25 leads</option>
-                    <option value={50}>50 leads</option>
-                  </select>
-                </div>
-                <span className="text-[11px] text-zinc-500">Autonomous deduping & validation enabled</span>
               </div>
 
               {sourceError && (
-                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
+                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2 text-xs text-rose-400">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>{sourceError}</span>
                 </div>
               )}
 
               {sourceSuccess && (
-                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
+                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2 text-xs text-emerald-400">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>{sourceSuccess}</span>
                 </div>
@@ -1902,177 +1202,17 @@ export default function ArconDashboard() {
                   type="button"
                   onClick={() => setIsSourceModalOpen(false)}
                   disabled={sourceLoading}
-                  className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition"
+                  className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={sourceLoading}
-                  className="flex items-center gap-1.5 rounded-md bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
+                  className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
                 >
                   {sourceLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
-                  {sourceLoading ? "Mining leads..." : "Mine & Ingest Leads"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* FIND CREATOR MODAL */}
-      {isCreatorModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => {
-              if (!creatorLoading) {
-                setIsCreatorModalOpen(false);
-                setCreatorError(null);
-              }
-            }}
-          />
-
-          <div className="relative w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-white">Find Creator</h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Discover public creator bios, emails, and audience metrics.
-                </p>
-              </div>
-              <button
-                onClick={() => setIsCreatorModalOpen(false)}
-                disabled={creatorLoading}
-                className="rounded-md p-1 text-zinc-400 hover:text-white transition"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Platform Selection Tabs */}
-            <div className="grid grid-cols-4 gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 p-1">
-              <button
-                type="button"
-                onClick={() => setCreatorPlatform("instagram")}
-                className={`flex items-center justify-center gap-1 rounded py-1.5 text-xs font-medium transition ${
-                  creatorPlatform === "instagram"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Instagram className="h-3.5 w-3.5 text-pink-400" />
-                Instagram
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCreatorPlatform("youtube")}
-                className={`flex items-center justify-center gap-1 rounded py-1.5 text-xs font-medium transition ${
-                  creatorPlatform === "youtube"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Youtube className="h-3.5 w-3.5 text-red-400" />
-                YouTube
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCreatorPlatform("linktree")}
-                className={`flex items-center justify-center gap-1 rounded py-1.5 text-xs font-medium transition ${
-                  creatorPlatform === "linktree"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Link2 className="h-3.5 w-3.5 text-emerald-400" />
-                Linktree
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setCreatorPlatform("github")}
-                className={`flex items-center justify-center gap-1 rounded py-1.5 text-xs font-medium transition ${
-                  creatorPlatform === "github"
-                    ? "bg-zinc-800 text-white shadow"
-                    : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                <Github className="h-3.5 w-3.5 text-zinc-300" />
-                GitHub
-              </button>
-            </div>
-
-            <form onSubmit={handleScrapeCreator} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
-                  {creatorPlatform === "instagram" && "Instagram Username"}
-                  {creatorPlatform === "youtube" && "YouTube Channel Handle"}
-                  {creatorPlatform === "linktree" && "Linktree Username or URL"}
-                  {creatorPlatform === "github" && "GitHub Username"}
-                </label>
-                <input
-                  type="text"
-                  required
-                  autoFocus
-                  value={creatorIdentifier}
-                  onChange={(e) => setCreatorIdentifier(e.target.value)}
-                  placeholder={
-                    creatorPlatform === "instagram"
-                      ? "e.g. beerbiceps or @tanmaybhat"
-                      : creatorPlatform === "youtube"
-                      ? "e.g. @MrBeast or @mkbhd"
-                      : creatorPlatform === "linktree"
-                      ? "e.g. linktr.ee/creator or creator_handle"
-                      : "e.g. torvalds or shadcn"
-                  }
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
-                />
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  {creatorPlatform === "instagram" && "Extracts public bio, contact email, and follower counts."}
-                  {creatorPlatform === "youtube" && "Scrapes channel about section, business email, and subscriber stats."}
-                  {creatorPlatform === "linktree" && "Mines all connected social endpoints, email, and WhatsApp links."}
-                  {creatorPlatform === "github" && "Mines public developer profile, verified company, bio, and blog."}
-                </p>
-              </div>
-
-              {/* Notice for India */}
-              <div className="rounded border border-zinc-800/60 bg-zinc-900/30 px-3 py-2 text-[11px] text-zinc-400">
-                Note: TikTok scraping is excluded (banned in India under Section 69A IT Act).
-              </div>
-
-              {creatorError && (
-                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
-                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                  <span>{creatorError}</span>
-                </div>
-              )}
-
-              {creatorSuccess && (
-                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>{creatorSuccess}</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
-                <button
-                  type="button"
-                  onClick={() => setIsCreatorModalOpen(false)}
-                  disabled={creatorLoading}
-                  className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatorLoading || !creatorIdentifier.trim()}
-                  className="flex items-center gap-1.5 rounded-md bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
-                >
-                  {creatorLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
-                  {creatorLoading ? "Discovering..." : "Scrape & Ingest"}
+                  {sourceLoading ? "Mining..." : "Start Mining"}
                 </button>
               </div>
             </form>
@@ -2085,49 +1225,30 @@ export default function ArconDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
             className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => {
-              if (!csvLoading) {
-                setIsCsvModalOpen(false);
-                setCsvError(null);
-              }
-            }}
+            onClick={() => !csvLoading && setIsCsvModalOpen(false)}
           />
-
-          <div className="relative w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-5">
+          <div className="relative w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl z-10 space-y-4">
             <div className="flex items-start justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold text-white">Import Leads from CSV</h3>
-                  <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
-                    Admin
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-400 mt-1">
-                  Upload any contact or B2B list. Columns are auto-mapped and deduplicated.
-                </p>
+                <h3 className="text-sm font-semibold text-white">Import Leads from CSV</h3>
+                <p className="text-xs text-zinc-400">Upload any B2B contact list with deduplication.</p>
               </div>
               <button
-                onClick={() => {
-                  if (!csvLoading) {
-                    setIsCsvModalOpen(false);
-                    setCsvError(null);
-                  }
-                }}
+                onClick={() => setIsCsvModalOpen(false)}
                 disabled={csvLoading}
-                className="rounded-md p-1 text-zinc-400 hover:text-white transition"
+                className="rounded-lg p-1 text-zinc-400 hover:text-white"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <form onSubmit={handleCsvImport} className="space-y-4">
-              {/* File Dropzone Area */}
               <label
                 htmlFor="csv-file-input"
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition cursor-pointer ${
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition cursor-pointer ${
                   csvFile
                     ? "border-emerald-500/50 bg-emerald-950/10"
-                    : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/80"
+                    : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700"
                 }`}
               >
                 <input
@@ -2143,54 +1264,25 @@ export default function ArconDashboard() {
                     }
                   }}
                 />
-
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 mb-3 shadow-inner">
-                  {csvFile ? (
-                    <FileText className="h-6 w-6 text-emerald-400" />
-                  ) : (
-                    <Upload className="h-6 w-6 text-zinc-400" />
-                  )}
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 mb-2">
+                  <Upload className="h-5 w-5 text-zinc-400" />
                 </div>
-
                 {csvFile ? (
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-white">{csvFile.name}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">
-                      {(csvFile.size / 1024).toFixed(1)} KB · Ready to import
-                    </p>
-                    <span className="inline-block mt-2 text-[11px] text-emerald-400 hover:underline">
-                      Click to choose a different file
-                    </span>
-                  </div>
+                  <p className="text-xs font-medium text-emerald-400">{csvFile.name} (Ready)</p>
                 ) : (
-                  <div className="text-center">
-                    <p className="text-xs font-medium text-zinc-200">
-                      Click to upload or drag & drop a CSV file
-                    </p>
-                    <p className="text-[11px] text-zinc-500 mt-1">
-                      Supports Clutch, Google Maps, Apollo, or custom CSV exports
-                    </p>
-                  </div>
+                  <p className="text-xs text-zinc-400">Click to upload CSV file</p>
                 )}
               </label>
 
-              {/* Supported Columns Guide */}
-              <div className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3 text-[11px] text-zinc-400 space-y-1">
-                <span className="font-semibold text-zinc-300">Auto-detected Columns:</span>
-                <p>
-                  Company Name, Contact Name / Decision Maker, Email(s), Phone, Website, City, Country, LinkedIn, Category.
-                </p>
-              </div>
-
               {csvError && (
-                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-400">
+                <div className="flex items-center gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2 text-xs text-rose-400">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <span>{csvError}</span>
                 </div>
               )}
 
               {csvSuccess && (
-                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-400">
+                <div className="flex items-center gap-2 rounded bg-emerald-500/10 border border-emerald-500/20 p-2 text-xs text-emerald-400">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>{csvSuccess}</span>
                 </div>
@@ -2199,23 +1291,18 @@ export default function ArconDashboard() {
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsCsvModalOpen(false);
-                    setCsvFile(null);
-                    setCsvError(null);
-                  }}
+                  onClick={() => setIsCsvModalOpen(false)}
                   disabled={csvLoading}
-                  className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition"
+                  className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={csvLoading || !csvFile}
-                  className="flex items-center gap-1.5 rounded-md bg-white px-4 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
+                  className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition disabled:opacity-40"
                 >
-                  {csvLoading && <RefreshCw className="h-3 w-3 animate-spin" />}
-                  {csvLoading ? "Processing & Ingesting..." : "Upload & Ingest Leads"}
+                  {csvLoading ? "Importing..." : "Upload & Ingest"}
                 </button>
               </div>
             </form>

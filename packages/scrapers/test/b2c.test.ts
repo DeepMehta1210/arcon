@@ -17,12 +17,12 @@ describe("B2C creator scrapers", () => {
     expect(lead.source).toBe("github");
     expect(lead.contactName).toBeDefined();
     expect(lead.websiteUrl).toBeDefined();
-  });
+  }, 15000);
 
   it("routes scrapeB2CCreator across platforms with structured schema", async () => {
     const lead = await scrapeB2CCreator("github", "octocat");
     expect(lead.id).toBeDefined();
     expect(lead.source).toBe("github");
     expect(lead.discoveredAt).toBeDefined();
-  });
+  }, 15000);
 });

@@ -12,11 +12,11 @@ describe("SMTP Verifier", () => {
     const result = await verifyEmail("test@nonexistent-domain-xyz-12345.com");
     expect(result.exists).toBe(false);
     expect(result.mxHost).toBeNull();
-  });
+  }, 15000);
 
   it("resolves valid MX records for standard domains", async () => {
     const mxList = await resolveMxRecords("google.com");
     expect(mxList.length).toBeGreaterThan(0);
     expect(mxList[0]).toContain("google.com");
-  });
+  }, 15000);
 });

@@ -111,7 +111,7 @@ class AutonomousLeadWorker {
             enriched.isPersonalDecisionMaker &&
             Boolean(enriched.targetEmail);
 
-          const nextStage = isReadyForSales ? "researched" : "sourced";
+          const nextStage = isReadyForSales ? "researched" : "disqualified";
 
           store.updateLead(lead.id, {
             companyName: enriched.companyName || cleanCompanyName(lead.companyName),

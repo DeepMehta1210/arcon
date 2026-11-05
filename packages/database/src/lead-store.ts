@@ -4,10 +4,17 @@ import { dirname, join } from "node:path";
 import process from "node:process";
 
 export interface StoredLead extends RawLead {
-  stage: "sourced" | "verified" | "researched" | "contacted" | "replied";
+  stage: "sourced" | "verified" | "researched" | "contacted" | "replied" | "disqualified";
   score: number;
   verificationStatus?: "unverified" | "socket_valid" | "socket_invalid" | "catch_all";
   notes?: string;
+  assignedTo?: string;
+  crmNotes?: Array<{
+    id: string;
+    author: string;
+    text: string;
+    createdAt: string;
+  }>;
 }
 
 function getDataDir(): string {
@@ -136,6 +143,7 @@ export class LeadStore {
     researched: number;
     contacted: number;
     replied: number;
+    disqualified: number;
     withEmail: number;
     withPhone: number;
   } {
@@ -147,6 +155,7 @@ export class LeadStore {
       researched: list.filter((l) => l.stage === "researched").length,
       contacted: list.filter((l) => l.stage === "contacted").length,
       replied: list.filter((l) => l.stage === "replied").length,
+      disqualified: list.filter((l) => l.stage === "disqualified").length,
       withEmail: list.filter((l) => l.emailCandidates.length > 0).length,
       withPhone: list.filter((l) => Boolean(l.phone)).length
     };
