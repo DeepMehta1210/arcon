@@ -180,18 +180,8 @@ jobs:
             
             echo "Successfully sent SSH public key via EC2 Instance Connect. Connecting..."
             
-            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -i /tmp/arcon_deploy_key ubuntu@"$PUBLIC_IP" << 'DEPLOY_SCRIPT'
-              set -ex
-              echo "=== Starting Arcon Deployment on Host ==="
-              cd /opt/arcon
-              sudo git config --system --add safe.directory /opt/arcon || true
-              sudo git fetch origin
-              sudo git checkout main
-              sudo git reset --hard origin/main
-              sudo docker compose up -d --build
-              sudo docker image prune -f
-              echo "=== Arcon Deployment Completed Successfully ==="
-DEPLOY_SCRIPT
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -i /tmp/arcon_deploy_key ubuntu@"$PUBLIC_IP" \
+              "sudo git config --system --add safe.directory /opt/arcon && cd /opt/arcon && sudo git fetch origin && sudo git checkout main && sudo git reset --hard origin/main && sudo docker compose up -d --build && sudo docker image prune -f"
 
             # Revoke temporary SSH rule
             aws ec2 revoke-security-group-ingress \
@@ -200,7 +190,7 @@ DEPLOY_SCRIPT
               --port 22 \
               --cidr "$RUNNER_IP/32" 2>/dev/null || true
               
-            echo "🎉 Deployment successfully executed via EC2 Instance Connect!"
+            echo "Deployment successfully executed via EC2 Instance Connect!"
             exit 0
           else
             echo "EC2 Instance Connect failed. Revoking SSH ingress..."
