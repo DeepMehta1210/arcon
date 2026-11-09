@@ -55,7 +55,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME || vars.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'ap-south-1' }}
           audience: sts.amazonaws.com
 
       - name: Deploy via AWS Systems Manager (SSM Run Command)
@@ -66,32 +66,65 @@ jobs:
             --output text)
 
           if [ -z "$INSTANCE_ID" ] || [ "$INSTANCE_ID" = "None" ]; then
-            echo "⚠️ Notice: No running EC2 instance found with tags 'App=arcon' and 'Environment=production' in region ${{ secrets.AWS_REGION || vars.AWS_REGION || 'us-east-1' }}."
+            echo "⚠️ Notice: No running EC2 instance found with tags 'App=arcon' and 'Environment=production' in region ${{ secrets.AWS_REGION || vars.AWS_REGION || 'ap-south-1' }}."
             echo "Once your EC2 instance is launched with tag App=arcon, pushes to main will automatically deploy to it."
-            exit 0
+            exit 1
           fi
 
           echo "Target EC2 instance found: $INSTANCE_ID"
           
-          echo "=== Fetching EC2 System Console Log ==="
-          aws ec2 get-console-output --instance-id "$INSTANCE_ID" --output text | tail -n 80 || echo "Console log not yet available"
-          
-          # Check if the instance is actively registered in AWS Systems Manager
-          SSM_STATUS=$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
-            --query "InstanceInformationList[0].PingStatus" \
-            --output text 2>/dev/null || echo "NotRegistered")
+          # 1. Ensure IAM Instance Profile is attached so SSM Agent can authenticate
+          ASSOC_ID=$(aws ec2 describe-iam-instance-profile-associations \
+            --filters "Name=instance-id,Values=$INSTANCE_ID" "Name=state,Values=associated" \
+            --query "IamInstanceProfileAssociations[0].AssociationId" \
+            --output text 2>/dev/null || echo "None")
+
+          if [ "$ASSOC_ID" = "None" ] || [ -z "$ASSOC_ID" ]; then
+            echo "No IAM Instance Profile attached to $INSTANCE_ID. Configuring SSM profile..."
+            
+            PROFILE_NAME="quant-lab-arcon-ec2-profile"
+            ROLE_NAME="quant-lab-arcon-ec2-role"
+            
+            if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" 2>/dev/null; then
+              echo "Creating instance profile $PROFILE_NAME..."
+              aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME" || true
+              aws iam add-role-to-instance-profile --instance-profile-name "$PROFILE_NAME" --role-name "$ROLE_NAME" || true
+              echo "Waiting 10s for IAM profile propagation..."
+              sleep 10
+            fi
+            
+            echo "Associating $PROFILE_NAME with $INSTANCE_ID..."
+            aws ec2 associate-iam-instance-profile \
+              --instance-id "$INSTANCE_ID" \
+              --iam-instance-profile Name="$PROFILE_NAME" || true
+            
+            echo "Associated profile. Waiting 15s for instance metadata update..."
+            sleep 15
+          else
+            echo "IAM Instance Profile already associated: $ASSOC_ID"
+          fi
+
+          # 2. Wait for SSM Agent to become Online (up to 90 seconds)
+          echo "Waiting for AWS Systems Manager registration..."
+          SSM_STATUS="NotRegistered"
+          for attempt in {1..18}; do
+            SSM_STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || echo "NotRegistered")
+            
+            echo "SSM Agent Status: $SSM_STATUS (attempt $attempt/18)"
+            if [ "$SSM_STATUS" = "Online" ]; then
+              break
+            fi
+            sleep 5
+          done
 
           if [ "$SSM_STATUS" != "Online" ]; then
             echo "⚠️ Target EC2 instance ($INSTANCE_ID) is running, but SSM Agent is not yet Online (Status: $SSM_STATUS)."
-            echo ""
-            echo "💡 To enable 100% automated CI/CD deployments via AWS SSM:"
-            echo "   1. Open AWS EC2 Console -> Instances"
-            echo "   2. Select '$INSTANCE_ID' ('arcon-production')"
-            echo "   3. Click Actions -> Security -> Modify IAM Role"
-            echo "   4. Attach IAM role: 'quant-lab-arcon-ec2-role'"
-            echo "   5. Within 60 seconds, SSM agent will connect and future git pushes will auto-deploy!"
-            exit 0
+            echo "=== Fetching EC2 System Console Log ==="
+            aws ec2 get-console-output --instance-id "$INSTANCE_ID" --output text | tail -n 80 || echo "Console log not yet available"
+            exit 1
           fi
 
           COMMAND_ID=$(aws ssm send-command \
