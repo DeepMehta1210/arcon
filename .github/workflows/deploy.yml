@@ -97,21 +97,42 @@ jobs:
             echo "IAM Instance Profile already associated: $ASSOC_ID"
           fi
 
-          # 2. Check if SSM Agent is Online (polls for up to 60s)
+          # 2. Check if SSM Agent is Online (polls for up to 30s)
           echo "Checking AWS Systems Manager registration..."
           SSM_STATUS="NotRegistered"
-          for attempt in {1..12}; do
+          for attempt in {1..6}; do
             SSM_STATUS=$(aws ssm describe-instance-information \
               --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
               --query "InstanceInformationList[0].PingStatus" \
               --output text 2>/dev/null || echo "NotRegistered")
             
-            echo "SSM Agent Status: $SSM_STATUS (attempt $attempt/12)"
+            echo "SSM Agent Status: $SSM_STATUS (attempt $attempt/6)"
             if [ "$SSM_STATUS" = "Online" ]; then
               break
             fi
             sleep 5
           done
+
+          # 3. If SSM agent hasn't picked up IAM credentials, reboot instance to initialize daemon
+          if [ "$SSM_STATUS" != "Online" ]; then
+            echo "⚠️ SSM agent did not pick up IAM profile on running instance. Rebooting instance to reload agent credentials..."
+            aws ec2 reboot-instances --instance-ids "$INSTANCE_ID" || echo "Instance reboot API call skipped/denied."
+            echo "Waiting 40s for instance reboot and daemon initialization..."
+            sleep 40
+
+            for attempt in {1..12}; do
+              SSM_STATUS=$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text 2>/dev/null || echo "NotRegistered")
+              
+              echo "SSM Agent Status post-reboot: $SSM_STATUS (attempt $attempt/12)"
+              if [ "$SSM_STATUS" = "Online" ]; then
+                break
+              fi
+              sleep 5
+            done
+          fi
 
           if [ "$SSM_STATUS" = "Online" ]; then
             echo "✅ SSM Agent is Online! Deploying via AWS Systems Manager..."
