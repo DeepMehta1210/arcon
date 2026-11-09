@@ -2,6 +2,7 @@ import type { RawLead } from "@arcon/shared-types";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import process from "node:process";
+import { upsertLeadToPostgres } from "./postgres-sync";
 
 export interface StoredLead extends RawLead {
   stage: "sourced" | "verified" | "researched" | "contacted" | "replied" | "disqualified";
@@ -101,12 +102,18 @@ export class LeadStore {
         const hasWebsite = lead.websiteUrl ? 20 : 0;
         const score = hasEmail + hasPhone + hasDecisionMaker + hasWebsite;
 
-        this.leads.set(lead.id, {
+        const preStage = (lead as StoredLead).stage;
+        const preScore = (lead as StoredLead).score;
+        const preVerification = (lead as StoredLead).verificationStatus;
+
+        const stored: StoredLead = {
           ...lead,
-          stage: "sourced",
-          score,
-          verificationStatus: "unverified"
-        });
+          stage: preStage || "sourced",
+          score: typeof preScore === "number" ? preScore : score,
+          verificationStatus: preVerification || "unverified"
+        };
+        this.leads.set(lead.id, stored);
+        upsertLeadToPostgres(stored).catch(() => {});
         added++;
       }
     }
@@ -133,6 +140,7 @@ export class LeadStore {
     const updated = { ...current, ...updates };
     this.leads.set(id, updated);
     this.saveToDisk();
+    upsertLeadToPostgres(updated).catch(() => {});
     return updated;
   }
 

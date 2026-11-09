@@ -67,23 +67,22 @@ describe("Research Swarm and 5-Factor Rubric", () => {
     expect(email.body).toContain("Want access to my notes?");
   });
 
-  it("crafts 3 Dices FinOps & AWS Architecture review for slow latency leads", () => {
+  it("crafts 3 Dices FinOps & Graviton Compute Savings for AWS leads", () => {
     const { generateProperOutreachEmail } = require("./researcher");
     const email = generateProperOutreachEmail({
       companyName: "CloudScale Commerce",
       domain: "scalecommerce.io",
-      brandDescription: "High-volume e-commerce infrastructure",
+      brandDescription: "High-volume cloud infrastructure on AWS",
       detectedTech: ["Next.js", "PostgreSQL", "AWS"],
       decisionMakerName: "Marcus Vance",
       decisionMakerRole: "VP of Engineering",
-      latencyMs: 920,
       dmarcPolicy: "reject"
     });
 
-    expect(email.subject).toBe("latency");
-    expect(email.body).toContain("920ms");
-    expect(email.body).toContain("6-point checklist");
-    expect(email.body).toContain("Want me to send the checklist over?");
+    expect(email.subject).toBe("cloud bill");
+    expect(email.body).toContain("Graviton");
+    expect(email.body).toContain("Compute Savings Plans");
+    expect(email.body).toContain("35–40%");
   });
 
   it("crafts 3 Dices Security & DMARC hardening for vulnerable domains", () => {
@@ -125,23 +124,21 @@ describe("Research Swarm and 5-Factor Rubric", () => {
     expect(email.body.split(/\s+/).length).toBeLessThan(120);
   });
 
-  it("crafts 3 Dices Agency Client Speed Audit for slow agency showcase sites", () => {
+  it("crafts 3 Dices DevOps Hiring outreach for teams recruiting cloud engineers", () => {
     const { generateProperOutreachEmail } = require("./researcher");
     const email = generateProperOutreachEmail({
-      companyName: "Vanguard Web Design",
-      domain: "vanguarddesign.com",
-      brandDescription: "Award-winning web design and Shopify development agency",
-      detectedTech: ["Next.js", "Shopify"],
+      companyName: "Vanguard Tech",
+      domain: "vanguardtech.com",
+      brandDescription: "Enterprise fintech SaaS",
+      detectedTech: ["Kubernetes", "AWS", "Terraform"],
       decisionMakerName: "Chloe Martin",
-      decisionMakerRole: "Founder & Creative Director",
-      latencyMs: 980,
-      dmarcPolicy: "reject"
+      decisionMakerRole: "VP of Engineering",
+      jobTitle: "Senior DevOps Engineer"
     });
 
-    expect(email.subject).toBe("site speed");
-    expect(email.body).toContain("client showcase");
-    expect(email.body).toContain("980ms");
-    expect(email.body).toContain("Open to seeing a 60-second speed breakdown for your showcase sites?");
+    expect(email.subject).toBe("devops role");
+    expect(email.body).toContain("actively recruiting for a Senior DevOps Engineer");
+    expect(email.body).toContain("fractional AWS team within 48 hours");
   });
 
   it("extracts case studies and agency philosophy from HTML", () => {

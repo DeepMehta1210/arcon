@@ -12,7 +12,12 @@ export const LeadSourceSchema = z.enum([
   "linktree",
   "yc_directory",
   "signal_finder",
-  "csv_import"
+  "csv_import",
+  "clutch",
+  "remoteok",
+  "weworkremotely",
+  "reddit",
+  "linkedin_jobs"
 ]);
 
 export type LeadSource = z.infer<typeof LeadSourceSchema>;

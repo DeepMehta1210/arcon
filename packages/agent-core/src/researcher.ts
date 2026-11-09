@@ -1,6 +1,7 @@
 import { verifyEmail } from "@arcon/verifier";
 import { resolveMx, resolveTxt } from "node:dns/promises";
-import { isGenericEmail, isLikelyPersonName, sanitizeEmail } from "./pipeline-engine";
+import { isGenericEmail, isLikelyPersonName, sanitizeEmail, isValidEmail } from "./pipeline-engine";
+import { auditCloudInfrastructure, type CloudInfrastructureAudit } from "./cloud-audit";
 
 export interface CompanyIntel {
   name: string;
@@ -10,8 +11,9 @@ export interface CompanyIntel {
   techStack: string[];
   latencyMs: number;
   dmarcPolicy: "reject" | "quarantine" | "none" | "missing";
-  mailProvider: "google" | "microsoft" | "zoho" | "custom";
+  mailProvider: "google" | "microsoft" | "zoho" | "aws_ses" | "custom";
   diagnosticPainPoint: string;
+  cloudAudit?: CloudInfrastructureAudit;
   recentEvents: Array<{
     type: "funding" | "hiring" | "product_launch" | "conference";
     date: string;
@@ -198,15 +200,19 @@ export function isParkedOrDeadDomain(html: string): boolean {
   );
 }
 
-export async function scrapeCompanyWebsite(domain: string): Promise<{
+export async function scrapeCompanyWebsite(
+  domain: string,
+  context?: { sourceSignal?: string; jobTitle?: string }
+): Promise<{
   title: string;
   description: string;
   detectedTech: string[];
   extractedEmails: string[];
   latencyMs: number;
   dmarcPolicy: "reject" | "quarantine" | "none" | "missing";
-  mailProvider: "google" | "microsoft" | "zoho" | "custom";
+  mailProvider: "google" | "microsoft" | "zoho" | "aws_ses" | "custom";
   diagnosticPainPoint: string;
+  cloudAudit?: CloudInfrastructureAudit;
   rawHtml?: string;
   linkedInUrl?: string;
   featuredProjects?: string[];
@@ -214,8 +220,15 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
   agencyArchetype?: "creative_studio" | "dev_shop" | "ecommerce_shopify" | "wordpress_content";
   isDeadOrParked?: boolean;
 }> {
-  const dnsIntel = await auditDomainDns(domain);
+  const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
   const start = Date.now();
+
+  // Run AWS Cloud & Infrastructure Audit in parallel
+  const cloudAuditPromise = auditCloudInfrastructure({
+    domain: cleanDomain,
+    sourceSignal: context?.sourceSignal,
+    jobTitle: context?.jobTitle
+  }).catch(() => null);
 
   try {
     const url = domain.startsWith("http") ? domain : `https://${domain}`;
@@ -236,7 +249,7 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
 
     // Extract title
     const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : domain;
+    const title = titleMatch ? titleMatch[1].trim() : cleanDomain;
 
     // Extract meta description
     const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
@@ -246,44 +259,59 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
     const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
     const heroHeadline = h1Match ? h1Match[1].trim().replace(/\s+/g, " ") : "";
 
-    // Deep Subpage Crawler: if no case studies or team on homepage, fetch /about or /team or /work
+    // Deep Subpage Crawler: if no case studies, team, or contact emails on homepage, fetch /about, /team, /contact
     let extendedHtml = html;
     let featuredProjects = extractPortfolioProjectsFromHtml(html);
     let agencyPhilosophy = extractAgencyPhilosophyFromHtml(html);
 
-    if (featuredProjects.length === 0 || !html.match(/(?:founder|ceo|managing director|creative director)/i)) {
-      const subLinkMatch = html.match(/href=["'](\/(?:about|team|people|our-team|who-we-are|work|case-studies))["']/i);
-      if (subLinkMatch && subLinkMatch[1]) {
+    const subpageRegex = /href=["']((?:https?:\/\/[^"'\s>]+)?\/(?:about|about-us|team|people|our-team|who-we-are|work|case-studies|contact|contact-us))["']/gi;
+    const subpageUrls = new Set<string>();
+
+    for (const match of html.matchAll(subpageRegex)) {
+      if (match && match[1]) {
         try {
-          const subUrl = new URL(subLinkMatch[1], url).toString();
-          const subRes = await fetch(subUrl, {
-            signal: AbortSignal.timeout(1500),
-            headers: { "User-Agent": "arcon-researcher/1.0" }
-          });
-          if (subRes.ok) {
-            const subText = await subRes.text();
-            extendedHtml += " " + subText;
-            if (featuredProjects.length === 0) {
-              const subProjects = extractPortfolioProjectsFromHtml(subText);
-              featuredProjects.push(...subProjects);
-            }
-            if (!agencyPhilosophy) {
-              agencyPhilosophy = extractAgencyPhilosophyFromHtml(subText);
-            }
+          const resolved = new URL(match[1], url).toString();
+          // Stay on same domain
+          if (new URL(resolved).hostname === new URL(url).hostname) {
+            subpageUrls.add(resolved);
           }
-        } catch {
-          // ignore subpage timeout
+        } catch {}
+      }
+      if (subpageUrls.size >= 2) break;
+    }
+
+    for (const subUrl of subpageUrls) {
+      try {
+        const subRes = await fetch(subUrl, {
+          signal: AbortSignal.timeout(1800),
+          headers: { "User-Agent": "arcon-researcher/1.0" }
+        });
+        if (subRes.ok) {
+          const subText = await subRes.text();
+          extendedHtml += " " + subText;
+          if (featuredProjects.length === 0) {
+            featuredProjects.push(...extractPortfolioProjectsFromHtml(subText));
+          }
+          if (!agencyPhilosophy) {
+            agencyPhilosophy = extractAgencyPhilosophyFromHtml(subText);
+          }
         }
+      } catch {
+        // ignore subpage timeout
       }
     }
 
+    // Await cloud audit
+    const cloudAudit = await cloudAuditPromise;
+
     // Detect tech stack
-    const detectedTech: string[] = [];
+    const pageTech: string[] = [];
     for (const tech of TECH_KEYWORDS) {
       if (new RegExp(`\\b${tech}\\b`, "i").test(extendedHtml)) {
-        detectedTech.push(tech);
+        pageTech.push(tech);
       }
     }
+    const detectedTech = Array.from(new Set([...(cloudAudit?.detectedTech || []), ...pageTech]));
 
     // Extract emails
     const emailMatches = extendedHtml.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [];
@@ -298,13 +326,8 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
     const textCorpus = `${title} ${description} ${heroHeadline} ${extendedHtml.slice(0, 4000)}`;
     const agencyArchetype = classifyAgencyArchetype(textCorpus);
 
-    // Formulate real diagnostic pain point
-    let diagnosticPainPoint = `Cloud architecture using ${detectedTech.slice(0, 2).join(" and ") || "modern stack"}.`;
-    if (dnsIntel.dmarcPolicy === "none" || dnsIntel.dmarcPolicy === "missing") {
-      diagnosticPainPoint = `DMARC record is ${dnsIntel.dmarcPolicy === "none" ? "monitoring only (p=none)" : "missing"}. Domain is vulnerable to impersonation.`;
-    } else if (latencyMs > 800) {
-      diagnosticPainPoint = `Server response latency is ${latencyMs}ms, exceeding standard web benchmarks.`;
-    }
+    // Formulate real diagnostic pain point from cloud audit
+    const diagnosticPainPoint = cloudAudit?.primaryHook || `Cloud architecture utilizing ${detectedTech.slice(0, 2).join(" & ") || "AWS infrastructure"}.`;
 
     return {
       title,
@@ -312,9 +335,10 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
       detectedTech,
       extractedEmails,
       latencyMs,
-      dmarcPolicy: dnsIntel.dmarcPolicy,
-      mailProvider: dnsIntel.mailProvider,
+      dmarcPolicy: cloudAudit?.devSecOps.dmarcPolicy || "missing",
+      mailProvider: cloudAudit?.mailProvider || "custom",
       diagnosticPainPoint,
+      cloudAudit: cloudAudit || undefined,
       rawHtml: extendedHtml,
       linkedInUrl,
       featuredProjects,
@@ -324,15 +348,17 @@ export async function scrapeCompanyWebsite(domain: string): Promise<{
     };
   } catch {
     const latencyMs = Date.now() - start;
+    const cloudAudit = await cloudAuditPromise;
     return {
-      title: domain,
-      description: "Cloud and technology startup",
-      detectedTech: ["React", "TypeScript", "AWS"],
+      title: cleanDomain,
+      description: "Cloud and technology company",
+      detectedTech: cloudAudit?.detectedTech || ["AWS", "Docker", "TypeScript"],
       extractedEmails: [],
       latencyMs,
-      dmarcPolicy: dnsIntel.dmarcPolicy,
-      mailProvider: dnsIntel.mailProvider,
-      diagnosticPainPoint: "Server latency and security posture have optimization potential.",
+      dmarcPolicy: cloudAudit?.devSecOps.dmarcPolicy || "missing",
+      mailProvider: cloudAudit?.mailProvider || "custom",
+      diagnosticPainPoint: cloudAudit?.primaryHook || "AWS infrastructure & DevOps optimization opportunity.",
+      cloudAudit: cloudAudit || undefined,
       rawHtml: "",
       linkedInUrl: undefined,
       featuredProjects: [],
@@ -373,12 +399,15 @@ export async function researchDecisionMaker(
     // Check for leadership titles in HTML
     if (!name) {
       const execPatterns = [
-        /(?:Founder|Co-Founder|CEO|CTO|Managing Director|Head of Engineering|President)\s*(?:[-–|:]|\sat\s)?\s*([A-Z][a-z]+ [A-Z][a-z]+)/i,
-        /([A-Z][a-z]+ [A-Z][a-z]+)\s*(?:[-–|:]|\s*,\s*)?\s*(?:Founder|Co-Founder|CEO|CTO|Managing Director|Head of Engineering)/i
+        // Structured HTML: <h3>Name</h3><p>Founder & CEO</p>
+        /<(?:h2|h3|h4|h5|strong|b|span)[^>]*>([A-Z][a-z]+ [A-Z][a-z]+)<\/(?:h2|h3|h4|h5|strong|b|span)>\s*<(?:p|span|div|small)[^>]*>(?:Founder|Co-Founder|CEO|CTO|Managing Director|Head of Engineering|Creative Director|Design Director|Technical Director|Principal|Owner)/i,
+        // Inline text: "Founder: John Doe" or "John Doe, Founder & CEO"
+        /(?:Founder|Co-Founder|CEO|CTO|Managing Director|Head of Engineering|President|Principal|Owner)\s*(?:[-–|:]|\sat\s)?\s*([A-Z][a-z]+ [A-Z][a-z]+)/i,
+        /([A-Z][a-z]+ [A-Z][a-z]+)\s*(?:[-–|:]|\s*,\s*|\s*—\s*)\s*(?:Founder|Co-Founder|CEO|CTO|Managing Director|Head of Engineering|Creative Director|Design Director|Technical Director|Principal|Owner)/i
       ];
       for (const pattern of execPatterns) {
         const match = rawHtml.match(pattern);
-        if (match && match[1] && !match[1].includes("Terms") && !match[1].includes("Privacy")) {
+        if (match && match[1] && isLikelyPersonName(match[1])) {
           name = match[1].trim();
           break;
         }
@@ -439,11 +468,14 @@ export async function researchDecisionMaker(
     }
   }
 
-  // Add only valid personal (non-generic) scraped emails from the website
-  for (const email of scrapedEmails) {
-    const cleanEmail = sanitizeEmail(email);
-    if (cleanEmail.endsWith(`@${cleanDomain}`) && !isGenericEmail(cleanEmail) && !candidateEmails.includes(cleanEmail)) {
-      candidateEmails.push(cleanEmail);
+  // Add and prioritize valid personal (non-generic) scraped emails directly from the website
+  const personalScraped = scrapedEmails
+    .map(sanitizeEmail)
+    .filter((e) => e.endsWith(`@${cleanDomain}`) && !isGenericEmail(e) && isValidEmail(e));
+
+  for (const email of personalScraped) {
+    if (!candidateEmails.includes(email)) {
+      candidateEmails.unshift(email); // Prioritize real scraped emails over permutations
     }
   }
 
@@ -501,13 +533,15 @@ export function generateProperOutreachEmail(params: {
   detectedTech: string[];
   decisionMakerName: string;
   decisionMakerRole: string;
-  latencyMs: number;
-  dmarcPolicy: string;
+  latencyMs?: number;
+  dmarcPolicy?: string;
   senderName?: string;
   senderRole?: string;
   featuredProject?: string;
   agencyPhilosophy?: string;
   agencyArchetype?: "creative_studio" | "dev_shop" | "ecommerce_shopify" | "wordpress_content";
+  cloudAudit?: CloudInfrastructureAudit;
+  jobTitle?: string;
 }): { subject: string; body: string } {
   const {
     companyName,
@@ -515,13 +549,14 @@ export function generateProperOutreachEmail(params: {
     brandDescription,
     detectedTech,
     decisionMakerName,
-    latencyMs,
     dmarcPolicy,
     senderName = "Deep Mehta",
     senderRole = "AWS Certified Solutions Architect – Professional | Founder",
     featuredProject,
     agencyPhilosophy,
-    agencyArchetype
+    agencyArchetype,
+    cloudAudit,
+    jobTitle
   } = params;
 
   // Capitalize first name properly
@@ -548,18 +583,77 @@ LinkedIn: https://linkedin.com/in/deepmehta`;
     );
 
   const isAiLead =
+    cloudAudit?.hasAiWorkload ||
     detectedTech.some((t) =>
       ["Amazon Bedrock", "OpenAI", "Anthropic", "Claude", "LangChain", "LlamaIndex", "FastAPI"].includes(t)
-    ) || /\b(ai|llm|agents?|rag|chatbot|gpt|machine learning|genai|models?)\b/i.test(textCorpus);
+    ) ||
+    /\b(ai|llm|agents?|rag|chatbot|gpt|machine learning|genai|models?)\b/i.test(textCorpus);
 
-  const isSlowLatency = latencyMs > 600;
-  const isSecurityGap = dmarcPolicy === "none" || dmarcPolicy === "missing";
+  const isHiringDevOps =
+    Boolean(jobTitle && /\b(devops|cloud|sre|platform|infrastructure|kubernetes|aws)\b/i.test(jobTitle)) ||
+    cloudAudit?.recommendedAngle === "aws_devops_hiring";
+
+  const isMigrationLead =
+    cloudAudit?.cloudProvider === "heroku" ||
+    cloudAudit?.cloudProvider === "render" ||
+    cloudAudit?.cloudProvider === "legacy_vps";
+
+  const directS3AssetLeaks = cloudAudit?.finOps.directS3AssetLeaks;
+  const leakedBucket = cloudAudit?.finOps.leakedS3Buckets?.[0];
+
+  const resolvedDmarc = dmarcPolicy || cloudAudit?.devSecOps.dmarcPolicy || "missing";
+  const isSecurityGap = resolvedDmarc === "none" || resolvedDmarc === "missing";
 
   let subject = "";
   let body = "";
 
-  if (agencyArchetype === "ecommerce_shopify") {
-    // ─── ARCHETYPE: E-COMMERCE / SHOPIFY AGENCY (Lemlist 95/100) ───
+  if (isHiringDevOps) {
+    // ─── ANGLE 1: ACTIVE DEVOPS / CLOUD HIRING PAIN ───
+    subject = "devops role";
+    body = `Hi ${firstName},
+
+Saw ${cleanCompanyName} is actively recruiting for a ${jobTitle || "DevOps / Cloud Engineer"}.
+
+Sourcing, vetting, and onboarding a senior full-time cloud engineer typically takes 8 to 12 weeks and $140k+ in salary overhead.
+
+At 3 Dices, we step in as your fractional AWS team within 48 hours—handling your Terraform IaC, Kubernetes (EKS), CI/CD pipelines, and 24/7 reliability for a fraction of that cost.
+
+Am I going in the right direction?
+
+${trustSignature}
+PS: Cut deployment cycles from 45 mins to 7 mins for our last SaaS client.`;
+  } else if (isMigrationLead) {
+    // ─── ANGLE 2: PAAS / LEGACY VPS MIGRATION TO AWS ───
+    subject = "aws migration";
+    body = `Hi ${firstName},
+
+Noticed ${cleanCompanyName}'s backend is running on ${cloudAudit?.hostingEnvironment || "a monolithic setup"}.
+
+As engineering teams scale, PaaS and legacy VPS setups become expensive bottlenecks—lacking granular VPC security, auto-scaling, and driving up monthly hosting costs.
+
+We migrate production workloads into modern containerized AWS (ECS Fargate or Amazon EKS) with automated Terraform modules and zero cutover downtime.
+
+Open to seeing our 1-page migration architecture blueprint?
+
+${trustSignature}
+PS: Migrated an overloaded monolith to Amazon EKS with zero cutover downtime.`;
+  } else if (directS3AssetLeaks) {
+    // ─── ANGLE 3: DIRECT S3 ASSET LEAKS & FINOPS EGRESS ───
+    subject = "cloud bill";
+    body = `Hi ${firstName},
+
+Ran a quick infrastructure check on ${cleanCompanyName}'s public cloud footprint.
+
+Noticed assets loading directly from S3 bucket "${leakedBucket}" without CloudFront edge caching, incurring unnecessary on-demand AWS data egress charges. Routing through CloudFront edge caching drops data egress fees by over 50%.
+
+Took 3 minutes to map out the monthly savings delta for your infrastructure.
+
+Is this accurate for your current setup?
+
+${trustSignature}
+PS: Reduced monthly AWS spend by 38% for a growth-stage client last month without touching application code.`;
+  } else if (agencyArchetype === "ecommerce_shopify") {
+    // ─── ANGLE 4: E-COMMERCE / SHOPIFY AGENCY AWS AUTO-SCALING ───
     subject = "checkout speed";
     body = `Hi ${firstName},
 
@@ -573,23 +667,8 @@ Am I going in the right direction for your client setups?
 
 ${trustSignature}
 PS: Zero database bottlenecks during an 80,000 req/min flash sale on AWS last quarter.`;
-  } else if (isAgency && isSlowLatency) {
-    // ─── ARCHETYPE 1: AGENCY CLIENT SITE SPEED (Lemlist 95/100) ───
-    subject = "site speed";
-    body = `Hi ${firstName},
-
-Inspected ${featuredProject ? `your recent build for ${featuredProject}` : `${domain}'s client showcase`}—the design and visual branding look great.
-
-Ran a quick speed check on your live showcase URL—initial server response is currently sitting at ${latencyMs}ms from edge nodes. Under peak traffic, that delay causes bounce-offs before visitors see your work.
-
-We act as the silent AWS cloud partner for design agencies—moving client sites to edge-cached AWS infrastructure to drop load times under 450ms without touching your frontend design.
-
-Open to seeing a 60-second speed breakdown for your showcase sites?
-
-${trustSignature}
-PS: Cut page load times by 65% for an agency's 14 client sites on AWS with zero downtime.`;
   } else if (isAgency && agencyArchetype === "wordpress_content") {
-    // ─── ARCHETYPE: WORDPRESS / CONTENT AGENCY (Lemlist 95/100) ───
+    // ─── ANGLE 5: WORDPRESS / CMS AGENCY HOSTING MARGIN ───
     subject = "hosting margin";
     body = `Hi ${firstName},
 
@@ -602,7 +681,7 @@ Open to seeing how our agency white-label model works?
 ${trustSignature}
 PS: Partner agencies average $3,200/mo in pure hosting margin on AWS with zero developer overhead.`;
   } else if (isAgency) {
-    // ─── ARCHETYPE 2: AGENCY WHITE-LABEL CLOUD MARGIN (Lemlist 95/100) ───
+    // ─── ANGLE 6: AGENCY WHITE-LABEL CLOUD INFRASTRUCTURE ───
     subject = "client servers";
     body = `Hi ${firstName},
 
@@ -617,7 +696,7 @@ Open to seeing our 1-page agency partner breakdown?
 ${trustSignature}
 PS: Managing 25+ agency client production workloads on AWS with 99.99% uptime.`;
   } else if (isAiLead) {
-    // ─── ARCHETYPE 1: PRIVATE ENTERPRISE AI & BEDROCK RAG (Breakdown #3 / #7) ───
+    // ─── ANGLE 6: PRIVATE ENTERPRISE AI & BEDROCK VPC ───
     subject = "bedrock rag";
     body = `Hi ${firstName},
 
@@ -631,60 +710,34 @@ Want access to my notes?
 
 ${trustSignature}
 PS: Deployed private enterprise RAG on Bedrock with zero third-party API exposure.`;
-  } else if (isSlowLatency) {
-    // ─── ARCHETYPE 2: LATENCY & EDGE BOTTLENECK AUDIT (Breakdown #2 — Score 95/100) ───
-    subject = "latency";
-    body = `Hi ${firstName},
-
-Inspected ${domain}'s server response latency—initial TTFB is sitting at ${latencyMs}ms.
-
-Under peak traffic, that latency causes user drop-offs and drives up underlying compute overhead. Moving static assets to edge routing and tuning database connection pooling would drop that to under 180ms.
-
-I put together a 6-point checklist we used to optimize this for our last SaaS client. Want me to send the checklist over?
-
-${trustSignature}
-PS: Cut page load times by 60% for a high-traffic media platform with zero downtime.`;
   } else if (isSecurityGap) {
-    // ─── ARCHETYPE 3: DMARC & CLOUD SECURITY POSTURE (Breakdown #4) ───
+    // ─── ANGLE 7: DMARC & DEVSECOPS SECURITY POSTURE ───
     subject = "dmarc audit";
     body = `Hi ${firstName},
 
-Ran a quick domain security audit on ${domain}—your DMARC policy is currently ${dmarcPolicy === "none" ? "monitoring-only (p=none)" : "missing"}.
+Ran a quick domain security audit on ${domain}—your DMARC policy is currently ${resolvedDmarc === "none" ? "monitoring-only (p=none)" : "missing"}.
 
-Under current Gmail and Yahoo enforcement, this leaves your domain exposed to spoofing and directly degrades transactional email deliverability.
+Under current Gmail and Yahoo enforcement, this leaves your domain exposed to spoofing and directly degrades transactional email deliverability and SOC 2 readiness.
 
 I have the exact 3 DNS records you need to enforce strict alignment without breaking legitimate mail. Want me to send them over?
 
 ${trustSignature}
 PS: Handled AWS security hardening and SOC 2 readiness controls for UK & US fintechs.`;
-  } else if (detectedTech.some((t) => ["Docker", "Kubernetes", "AWS", "Terraform", "Next.js", "Node"].includes(t))) {
-    // ─── ARCHETYPE 4: THE VENDING MACHINE FINOPS ANGLE (Breakdown #4 — Score 82/100) ───
+  } else {
+    // ─── ANGLE 8: AWS FINOPS & GRAVITON COMPUTE SAVINGS ───
     subject = "cloud bill";
     body = `Hi ${firstName},
 
-You're at a vending machine. Diet Coke: $0 or $1.50. What would you choose? Zero, right?
+Ran a quick infrastructure review for ${cleanCompanyName}.
 
-Then why pay AWS on-demand rates when Graviton instances + compute savings plans give ${cleanCompanyName} the exact same compute for 40% less?
+Most engineering teams building on ${techLabel} pay on-demand AWS rates when Graviton instances and Compute Savings Plans give the exact same compute for 35–40% less.
 
-Took 2 minutes to calculate the monthly delta for your stack. 
+Took 2 minutes to calculate the monthly delta for your stack.
 
 Is this accurate for your current infrastructure?
 
 ${trustSignature}
 PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`;
-  } else {
-    // ─── ARCHETYPE 5: DEVOPS AUTOMATION & CI/CD PLAYBOOK (Breakdown #7 — Score 91/100) ───
-    subject = "devops pipeline";
-    body = `Hi ${firstName},
-
-Saw your team is building on ${techLabel}. As engineering teams grow, deployments often become bottlenecks—either manual and risky, or dragging out over 45 minutes.
-
-We built automated GitHub Actions pipelines with instant 1-step rollbacks that cut deployment cycles down to under 7 minutes. Put our ECS/EKS architecture breakdown and Terraform template into a 1-page dossier.
-
-Am I going in the right direction?
-
-${trustSignature}
-PS: Migrated an overloaded monolith to Amazon EKS with zero cutover downtime.`;
   }
 
   return { subject, body };
@@ -719,9 +772,13 @@ export function generateFollowUpEmail(params: {
   const cleanSubject = initialSubject.replace(/^re:\s*/i, "");
   const subject = `Re: ${cleanSubject}`;
 
-  let valueNote = `Took 3 minutes to put together a tailored AWS latency and compute audit for ${cleanCompanyName}.`;
-  if (/client servers|hosting margin|site speed/i.test(cleanSubject)) {
+  let valueNote = `Took 3 minutes to put together a tailored AWS architecture and compute audit for ${cleanCompanyName}.`;
+  if (/client servers|hosting margin/i.test(cleanSubject)) {
     valueNote = `Mapped out the 1-page AWS architecture blueprint we use for agency client sites (auto-scaling ECS, CloudFront edge caching, and daily S3 snapshots).`;
+  } else if (/devops role/i.test(cleanSubject)) {
+    valueNote = `Put together our 1-page fractional AWS & Kubernetes onboarding breakdown for engineering teams.`;
+  } else if (/aws migration/i.test(cleanSubject)) {
+    valueNote = `Mapped out our zero-downtime AWS ECS/EKS migration playbook for ${cleanCompanyName}.`;
   }
 
   const body = `Hi ${firstName},

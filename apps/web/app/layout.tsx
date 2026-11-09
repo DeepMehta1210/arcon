@@ -2,10 +2,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Arcon | Autonomous Lead & Revenue Engine",
-  description: "Autonomous command center for signal mining, lead verification, and multi-channel outreach in ASD-STE100.",
+  title: "Arcon | Growth & Client Engine",
+  description: "Autonomous command center for B2B client acquisition.",
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" }
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg"
   },
 };
 
@@ -16,7 +20,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+        <link rel="shortcut icon" href="/icon.svg" />
+      </head>
+      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
         {children}
       </body>
     </html>

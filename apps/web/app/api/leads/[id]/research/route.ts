@@ -50,7 +50,14 @@ export async function POST(
         ...(lead.signalData || {}),
         dossier,
         decisionMaker: dossier.decisionMaker,
-        properEmail: dossier.recommendedOutreach
+        properEmail: dossier.recommendedOutreach,
+        draftEmail: {
+          subject: dossier.recommendedOutreach.tailoredSubject,
+          body: dossier.recommendedOutreach.tailoredBody,
+          angle: dossier.recommendedOutreach.selectedPlay || "Site Speed & Scalability",
+          targetEmail: dossier.decisionMaker.email,
+          generatedAt: new Date().toISOString()
+        }
       }
     });
 

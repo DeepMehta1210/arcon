@@ -55,6 +55,7 @@ export interface StoredLead {
   verificationStatus?: "unverified" | "socket_valid" | "socket_invalid" | "catch_all";
   notes?: string;
   assignedTo?: string;
+  discoveredAt?: string;
   crmNotes?: Array<{
     id: string;
     author: string;
@@ -94,9 +95,22 @@ export const INVALID_NAME_WORDS = new Set([
   "review", "reviews", "display", "mobile", "racing", "game", "infotech", "tech"
 ]);
 
+/**
+ * Cleans honorifics (Dr., Mr., etc.) and trailing degree suffixes (PhD, Jr., etc.) from names.
+ */
+export function cleanPersonName(name?: string): string {
+  if (!name || typeof name !== "string") return "";
+  let clean = name.trim();
+  clean = clean.replace(/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?|eng\.?)\s+/i, "");
+  clean = clean.replace(/,\s*(jr\.?|sr\.?|ii|iii|iv|phd|mba|md|esq\.?)$/i, "");
+  clean = clean.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|phd|mba|md|esq\.?)$/i, "");
+  return clean.trim();
+}
+
 export function isLikelyPersonName(name?: string): boolean {
   if (!name || typeof name !== "string") return false;
-  const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const cleaned = cleanPersonName(name);
+  const words = cleaned.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 3) return false;
   for (const w of words) {
     if (INVALID_NAME_WORDS.has(w)) return false;
@@ -157,11 +171,20 @@ export function cleanCompanyName(raw?: string): string {
  * Must strictly require a verified personal decision maker with real human name and non-generic email.
  */
 export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
-  if (lead.stage !== "researched") return false;
+  const isQualifiedStage =
+    lead.stage === "researched" ||
+    (lead.stage as any) === "ready_for_outreach" ||
+    (lead.signalData as any)?.qualification?.stage === "ready_for_outreach";
+
+  if (!isQualifiedStage) return false;
   if (!lead.contactName || !isLikelyPersonName(lead.contactName)) return false;
 
-  const isSocketOk = lead.verificationStatus === "socket_valid" || lead.verificationStatus === "catch_all";
-  if (!isSocketOk) return false;
+  const isSocketOk =
+    lead.verificationStatus === "socket_valid" ||
+    lead.verificationStatus === "catch_all" ||
+    (lead.signalData as any)?.qualification?.reachabilityDetails?.isSocketVerified;
+
+  if (!isSocketOk && !lead.phone) return false;
 
   const draftTarget = (lead.signalData as any)?.draftEmail?.targetEmail;
   const target = draftTarget || lead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
@@ -171,8 +194,12 @@ export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
 
   if (!hasEmailTarget && !hasPhoneTarget) return false;
 
-  const hasDraft = Boolean((lead.signalData as any)?.draftEmail?.body || lead.notes);
-  return hasDraft;
+  const hasContent = Boolean(
+    (lead.signalData as any)?.draftEmail?.body ||
+    lead.notes ||
+    (lead.signalData as any)?.qualification?.intentDetails?.triggerSummary
+  );
+  return hasContent;
 }
 
 export const ANGLE_PRESETS = [

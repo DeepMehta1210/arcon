@@ -152,67 +152,109 @@ export async function scrapeIndianLocalBusinesses(
 }
 
 export async function scrapeLocalPlaces(options: MapsScrapeOptions): Promise<RawLead[]> {
-  const limit = options.limit ?? 10;
+  const limit = options.limit ?? 15;
   const coords = await geocodeCity(options.city);
 
   const leads: RawLead[] = [];
 
   if (coords) {
     try {
-      const bboxDelta = 0.05;
+      const bboxDelta = 0.08;
       const minLat = parseFloat(coords.lat) - bboxDelta;
       const maxLat = parseFloat(coords.lat) + bboxDelta;
       const minLon = parseFloat(coords.lon) - bboxDelta;
       const maxLon = parseFloat(coords.lon) + bboxDelta;
 
-      const queryTag = options.keyword.toLowerCase().includes("cafe") || options.keyword.toLowerCase().includes("coffee")
-        ? "amenity=cafe"
-        : options.keyword.toLowerCase().includes("clinic") || options.keyword.toLowerCase().includes("dental")
-        ? "amenity=dentist"
-        : "shop";
+      const lowerKeyword = options.keyword.toLowerCase();
+      let queryBody = "";
 
-      const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:10];node[${queryTag}](${minLat},${minLon},${maxLat},${maxLon});out;`;
+      if (lowerKeyword.includes("cafe") || lowerKeyword.includes("coffee")) {
+        queryBody = `node["amenity"="cafe"](${minLat},${minLon},${maxLat},${maxLon});`;
+      } else if (lowerKeyword.includes("clinic") || lowerKeyword.includes("dental") || lowerKeyword.includes("dentist")) {
+        queryBody = `node["amenity"="dentist"](${minLat},${minLon},${maxLat},${maxLon});`;
+      } else if (
+        lowerKeyword.includes("agency") ||
+        lowerKeyword.includes("design") ||
+        lowerKeyword.includes("web") ||
+        lowerKeyword.includes("software") ||
+        lowerKeyword.includes("it") ||
+        lowerKeyword.includes("digital") ||
+        lowerKeyword.includes("marketing") ||
+        lowerKeyword.includes("studio") ||
+        lowerKeyword.includes("consulting")
+      ) {
+        // Query tech, digital, design, and advertising office establishments
+        queryBody = `
+          node["office"~"it|advertising|company|graphic_design|consulting|marketing|web_design|software"](${minLat},${minLon},${maxLat},${maxLon});
+          way["office"~"it|advertising|company|graphic_design|consulting|marketing|web_design|software"](${minLat},${minLon},${maxLat},${maxLon});
+        `;
+      } else {
+        queryBody = `
+          node["office"](${minLat},${minLon},${maxLat},${maxLon});
+          node["shop"](${minLat},${minLon},${maxLat},${maxLon});
+        `;
+      }
+
+      const overpassUrl = `https://overpass-api.de/api/interpreter?data=[out:json][timeout:15];(${queryBody.trim()});out tags ${limit * 2};`;
       const res = await fetch(overpassUrl, {
-        headers: { "User-Agent": "arcon/1.0" },
+        headers: { "User-Agent": "arcon-scraper/1.0" },
       });
 
       if (res.ok) {
-        const data = await res.json() as {
+        const data = (await res.json()) as {
           elements?: Array<{
             id: number;
-            lat: number;
-            lon: number;
+            lat?: number;
+            lon?: number;
             tags?: Record<string, string>;
           }>;
         };
 
-        for (const el of (data.elements ?? []).slice(0, limit)) {
+        const seenNames = new Set<string>();
+
+        for (const el of data.elements ?? []) {
           const tags = el.tags ?? {};
-          const name = tags.name || tags["operator"] || `${options.keyword} listing`;
-          const website = tags.website || tags["contact:website"];
-          const phone = tags.phone || tags["contact:phone"];
+          let rawName = tags.name || tags["operator"] || tags["brand"];
+          if (!rawName) continue;
+
+          // Clean name
+          rawName = rawName.split(/\s*[-–—|•:]\s*/)[0].trim();
+          if (seenNames.has(rawName.toLowerCase())) continue;
+          seenNames.add(rawName.toLowerCase());
+
+          const rawWebsite = tags.website || tags["contact:website"] || tags["url"];
+          const phone = tags.phone || tags["contact:phone"] || tags["contact:mobile"];
           const email = tags.email || tags["contact:email"];
 
+          let cleanWebsite = rawWebsite;
+          if (cleanWebsite && !cleanWebsite.startsWith("http")) {
+            cleanWebsite = `https://${cleanWebsite}`;
+          }
+
+          // Prioritize agencies with website or contact info
           leads.push({
             id: randomUUID(),
             source: "google_maps",
-            companyName: name,
+            companyName: rawName,
             headline: `${options.keyword} in ${options.city}`,
             emailCandidates: email ? [email] : [],
             phone,
-            websiteUrl: website,
+            websiteUrl: cleanWebsite,
             location: {
               city: options.city,
-              rawAddress: `${tags["addr:street"] ?? ""} ${tags["addr:housenumber"] ?? ""}`.trim(),
+              rawAddress: `${tags["addr:street"] ?? ""} ${tags["addr:housenumber"] ?? ""}`.trim() || options.city,
             },
             socialUrls: {},
             signalData: {
               osmId: el.id,
               lat: el.lat,
               lon: el.lon,
+              officeType: tags.office || tags.shop || "digital_office",
             },
             discoveredAt: new Date().toISOString(),
           });
+
+          if (leads.length >= limit) break;
         }
       }
     } catch {}

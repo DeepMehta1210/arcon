@@ -17,8 +17,8 @@ export interface RubricEvaluation {
   rejectionReason?: string;
 }
 
-export const NEGATIVE_INDUSTRY_REGEX =
-  /\b(print\s*shop|printers?|printing|stationery|signage|signs?|banner|banners|photocopy|copier|wedding\s*invitations?|car\s*wrap|vehicle\s*wrap|hardware\s*repair|phone\s*repair|mobile\s*repair|appliance\s*repair|commercial\s*cleaning|plumbing|roofing|construction|tailoring|dry\s*cleaning|laundry)\b/i;
+import { NEGATIVE_INDUSTRY_REGEX } from "./qualification-gate";
+export { NEGATIVE_INDUSTRY_REGEX };
 
 export interface DynamicScoringParams {
   companyName: string;

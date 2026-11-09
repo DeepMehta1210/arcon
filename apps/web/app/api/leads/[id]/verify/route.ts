@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { LeadStore } from "@arcon/database";
 import { verifyEmail } from "@arcon/verifier";
+import { isGenericEmail, isValidEmail } from "@arcon/agent-core";
 
 export async function POST(
   _request: Request,
@@ -15,7 +16,10 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Lead not found" }, { status: 404 });
     }
 
-    const email = lead.emailCandidates[0];
+    const email =
+      lead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e)) ||
+      lead.emailCandidates[0];
+
     if (!email) {
       return NextResponse.json(
         { success: false, error: "No email candidate available for this lead" },

@@ -18,6 +18,7 @@ export interface SwarmResearchInput {
   companyName?: string;
   contactName?: string;
   observedSignal?: string;
+  jobTitle?: string;
   useAiEngine?: boolean;
 }
 
@@ -26,8 +27,11 @@ export async function runResearchSwarm(input: SwarmResearchInput): Promise<Prosp
   const domain = input.domain.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
   const companyName = input.companyName || domain.split(".")[0].toUpperCase();
 
-  // 1. Corporate Intel Agent: inspect website, portfolio case studies, and philosophy
-  const siteIntel = await scrapeCompanyWebsite(domain);
+  // 1. Corporate Intel Agent: inspect website, cloud infrastructure footprint, and case studies
+  const siteIntel = await scrapeCompanyWebsite(domain, {
+    sourceSignal: input.observedSignal,
+    jobTitle: input.jobTitle
+  });
 
   // 2. Decision Maker Agent: identify executive and run socket SMTP verification
   const decisionMaker = await researchDecisionMaker(
@@ -115,7 +119,9 @@ export async function runResearchSwarm(input: SwarmResearchInput): Promise<Prosp
       dmarcPolicy: siteIntel.dmarcPolicy,
       featuredProject: siteIntel.featuredProjects?.[0],
       agencyPhilosophy: siteIntel.agencyPhilosophy,
-      agencyArchetype: siteIntel.agencyArchetype
+      agencyArchetype: siteIntel.agencyArchetype,
+      cloudAudit: (siteIntel as any).cloudAudit,
+      jobTitle: input.jobTitle
     });
   }
 

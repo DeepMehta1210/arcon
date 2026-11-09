@@ -11,6 +11,7 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
     const store = LeadStore.getInstance();
+    store.reloadFromDisk();
     let leads = store.getAllLeads();
 
     // If store is empty, auto-ingest

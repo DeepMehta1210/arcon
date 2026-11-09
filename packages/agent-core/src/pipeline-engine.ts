@@ -14,7 +14,8 @@ export const GENERIC_EMAIL_PREFIXES = new Set([
   "services", "service", "consulting", "inquiry", "recruit", "recruiting", "recruitment",
   "career", "editorial", "news", "customercare", "operations", "dev", "development",
   "agency", "booking", "bookings", "frontdesk", "reception", "uk", "us", "london", "india",
-  "united", "choosing", "connect", "reachus", "getintouch"
+  "united", "choosing", "connect", "reachus", "getintouch",
+  "name", "test", "demo", "sample", "example", "user", "firstname", "first.last", "placeholder"
 ]);
 
 const INVALID_EMAIL_EXTENSIONS = /\.(jpe?g|png|webp|svg|gif|ico|bmp|tiff?|pdf|css|js)$/i;
@@ -30,8 +31,29 @@ export const INVALID_NAME_WORDS = new Set([
   "international", "office", "headquarters", "dept", "department", "support",
   "sales", "business", "enterprise", "cloud", "security", "network", "no",
   "none", "case", "studies", "praise", "street", "road", "suite", "avenue",
-  "review", "reviews", "display", "mobile", "racing", "game", "infotech", "tech"
+  "review", "reviews", "display", "mobile", "racing", "game", "infotech", "tech",
+  "engineer", "engineering", "architect", "architecture", "director", "manager",
+  "lead", "officer", "founder", "president", "specialist", "analyst", "civil",
+  "staff", "principal", "senior", "junior", "head", "chief", "executive", "advisor",
+  "lot", "lines", "property", "view", "more", "learn", "features", "pricing",
+  "data", "map", "tools", "utility", "platform", "system", "request", "demo",
+  "terms", "rights", "reserved", "cookie", "cookies", "menu", "search", "blog",
+  "news", "press", "legal", "portal", "account", "login", "signup", "overview"
 ]);
+
+/**
+ * Cleans honorifics (Dr., Mr., etc.) and trailing degree suffixes (PhD, Jr., etc.) from names.
+ */
+export function cleanPersonName(name?: string): string {
+  if (!name || typeof name !== "string") return "";
+  let clean = name.trim();
+  // Strip common honorifics
+  clean = clean.replace(/^(dr\.?|mr\.?|mrs\.?|ms\.?|prof\.?|eng\.?)\s+/i, "");
+  // Strip trailing titles/suffixes: , PhD, Jr., etc.
+  clean = clean.replace(/,\s*(jr\.?|sr\.?|ii|iii|iv|phd|mba|md|esq\.?)$/i, "");
+  clean = clean.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|phd|mba|md|esq\.?)$/i, "");
+  return clean.trim();
+}
 
 /**
  * Validates whether a given string is a plausible real human personal name (e.g. "Pavel Shevtsov", "Marcus Gitau")
@@ -39,7 +61,8 @@ export const INVALID_NAME_WORDS = new Set([
  */
 export function isLikelyPersonName(name?: string): boolean {
   if (!name || typeof name !== "string") return false;
-  const words = name.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const cleaned = cleanPersonName(name);
+  const words = cleaned.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 3) return false;
   for (const w of words) {
     if (INVALID_NAME_WORDS.has(w)) return false;
@@ -87,11 +110,18 @@ export function isValidEmail(email?: string): boolean {
 export function isGenericEmail(email?: string): boolean {
   const clean = sanitizeEmail(email);
   if (!clean || !isValidEmail(clean)) return true;
-  const localPart = clean.split("@")[0].toLowerCase().trim();
-  if (GENERIC_EMAIL_PREFIXES.has(localPart)) return true;
+  const [localPart, domainPart] = clean.split("@");
+  if (!localPart || !domainPart) return true;
+
+  // Placeholder / dummy domains
+  const dummyDomains = new Set(["company.com", "example.com", "domain.com", "yourcompany.com", "test.com", "site.com"]);
+  if (dummyDomains.has(domainPart.toLowerCase())) return true;
+
+  const localLower = localPart.toLowerCase().trim();
+  if (GENERIC_EMAIL_PREFIXES.has(localLower)) return true;
 
   // Split compound parts (e.g. vendors.partnership, sales-team, info_uk)
-  const subparts = localPart.split(/[._\-+]/);
+  const subparts = localLower.split(/[._\-+]/);
   for (const part of subparts) {
     if (GENERIC_EMAIL_PREFIXES.has(part)) return true;
   }
@@ -174,7 +204,8 @@ export async function enrichAndPersonalizeLead(
     domain,
     companyName: cleanedCompany,
     contactName: lead.contactName,
-    observedSignal: lead.headline
+    observedSignal: lead.headline,
+    jobTitle: (lead as any).jobTitle || (lead.headline?.toLowerCase().includes("engineer") ? lead.headline : undefined)
   });
 
   const rawPersonName = dossier.decisionMaker.fullName || lead.contactName;
@@ -243,11 +274,11 @@ export async function enrichAndPersonalizeLead(
     dossier.recommendedOutreach?.tailoredBody ||
     `Hi ${firstName || "there"},
 
-You're at a vending machine. Diet Coke: $0 or $1.50. What would you choose? Zero, right?
+Ran a quick review of ${cleanedCompany}'s cloud infrastructure footprint.
 
-Then why pay AWS on-demand rates when Graviton instances + compute savings plans give ${cleanedCompany} the exact same compute for 40% less?
+Most engineering teams running on AWS pay on-demand compute rates when Graviton instances and Compute Savings Plans deliver the exact same performance for 35–40% less.
 
-Took 2 minutes to calculate the monthly delta for your setup. 
+Took 2 minutes to calculate the monthly delta for your setup.
 
 Is this accurate for your current infrastructure?
 
