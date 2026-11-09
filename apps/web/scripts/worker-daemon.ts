@@ -1,4 +1,4 @@
-import { LeadStore } from "@arcon/database";
+import { LeadStore, syncInboundRepliesToPostgres } from "@arcon/database";
 import {
   enrichAndPersonalizeLead,
   cleanCompanyName,
@@ -11,7 +11,17 @@ import {
   fetchShowHNSignals,
   scrapeLocalPlaces
 } from "@arcon/scrapers";
+import { fetchInboundReplies } from "@arcon/outbound-email";
 import type { RawLead } from "@arcon/shared-types";
+
+// Process-level crash prevention to ensure 100% continuous 24/7 uptime
+process.on("uncaughtException", (err) => {
+  console.error("[WorkerDaemon:FatalShield] Uncaught exception intercepted:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[WorkerDaemon:FatalShield] Unhandled rejection intercepted:", reason);
+});
 
 console.log("[WorkerDaemon] Autonomous 24/7 Worldwide Growth & Sourcing OS started.");
 
@@ -180,14 +190,33 @@ async function runEnrichmentCycle() {
   }
 }
 
-// 1. Initial enrichment cycle on startup (after 3s)
+/**
+ * Continuous inbound email reply monitor & attribution engine.
+ */
+async function runInboundReplySyncCycle() {
+  try {
+    if (!process.env.ZOHO_PASSWORD) {
+      return;
+    }
+    console.log("[WorkerDaemon:ReplySync] Scanning Zoho IMAP for prospective customer replies...");
+    const fetchResult = await fetchInboundReplies();
+    if (fetchResult.success && fetchResult.messages.length > 0) {
+      const summary = await syncInboundRepliesToPostgres(fetchResult.messages);
+      console.log(`[WorkerDaemon:ReplySync] Inbound sync finished: ${fetchResult.messages.length} messages inspected, ${summary.matchedLeadsCount} matched to pipeline leads.`);
+    }
+  } catch (err) {
+    console.warn("[WorkerDaemon:ReplySync] IMAP sync skipped:", (err as Error).message);
+  }
+}
+
+// 1. Initial enrichment cycle on startup (after 3s), then every 45 seconds continuously
 setTimeout(runEnrichmentCycle, 3000);
+setInterval(runEnrichmentCycle, 45000);
 
-// Continuous enrichment loop every 60 seconds
-setInterval(runEnrichmentCycle, 60000);
-
-// 2. Initial worldwide sourcing cycle on startup (after 10s)
+// 2. Initial worldwide sourcing cycle on startup (after 10s), then every 10 minutes continuously
 setTimeout(runWorldwideSourcingCycle, 10000);
+setInterval(runWorldwideSourcingCycle, 10 * 60 * 1000);
 
-// Continuous worldwide sourcing rotation every 2 hours (7200000 ms)
-setInterval(runWorldwideSourcingCycle, 2 * 60 * 60 * 1000);
+// 3. Initial inbound reply check on startup (after 25s), then every 3 minutes continuously
+setTimeout(runInboundReplySyncCycle, 25000);
+setInterval(runInboundReplySyncCycle, 3 * 60 * 1000);
