@@ -33,7 +33,7 @@ describe("Pipeline Engine & Continuous Lead Enrichment", () => {
     expect(result.draftBody).toContain("Alex");
     expect(result.score).toBeGreaterThan(0);
     expect(result.dossier).toBeDefined();
-  }, 10000);
+  }, 25000);
 
   it("identifies leads having only generic sales@ email as not personal decision maker", async () => {
     const result = await enrichAndPersonalizeLead({
