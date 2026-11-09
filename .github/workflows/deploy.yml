@@ -58,7 +58,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'ap-south-1' }}
           audience: sts.amazonaws.com
 
-      - name: Deploy via AWS Systems Manager (SSM Run Command)
+      - name: Deploy via AWS Systems Manager (SSM) or EC2 Instance Connect
         run: |
           INSTANCE_ID=$(aws ec2 describe-instances \
             --filters "Name=tag:App,Values=arcon" "Name=instance-state-name,Values=running" \
@@ -73,102 +73,150 @@ jobs:
 
           echo "Target EC2 instance found: $INSTANCE_ID"
           
-          # 1. Ensure IAM Instance Profile is attached so SSM Agent can authenticate
+          # 1. Try attaching an IAM instance profile if none is currently associated
           ASSOC_ID=$(aws ec2 describe-iam-instance-profile-associations \
             --filters "Name=instance-id,Values=$INSTANCE_ID" "Name=state,Values=associated" \
             --query "IamInstanceProfileAssociations[0].AssociationId" \
             --output text 2>/dev/null || echo "None")
 
           if [ "$ASSOC_ID" = "None" ] || [ -z "$ASSOC_ID" ]; then
-            echo "No IAM Instance Profile attached to $INSTANCE_ID. Configuring SSM profile..."
+            echo "No IAM Instance Profile attached to $INSTANCE_ID. Checking for available profiles..."
             
-            PROFILE_NAME="quant-lab-arcon-ec2-profile"
-            ROLE_NAME="quant-lab-arcon-ec2-role"
+            EXISTING_PROFILE=$(aws iam list-instance-profiles \
+              --query "InstanceProfiles[?contains(InstanceProfileName, 'arcon') || contains(InstanceProfileName, 'quant-lab')].InstanceProfileName | [0]" \
+              --output text 2>/dev/null || echo "None")
             
-            if ! aws iam get-instance-profile --instance-profile-name "$PROFILE_NAME" 2>/dev/null; then
-              echo "Creating instance profile $PROFILE_NAME..."
-              aws iam create-instance-profile --instance-profile-name "$PROFILE_NAME" || true
-              aws iam add-role-to-instance-profile --instance-profile-name "$PROFILE_NAME" --role-name "$ROLE_NAME" || true
-              echo "Waiting 10s for IAM profile propagation..."
+            if [ -n "$EXISTING_PROFILE" ] && [ "$EXISTING_PROFILE" != "None" ]; then
+              echo "Found existing instance profile: $EXISTING_PROFILE. Associating with $INSTANCE_ID..."
+              aws ec2 associate-iam-instance-profile \
+                --instance-id "$INSTANCE_ID" \
+                --iam-instance-profile Name="$EXISTING_PROFILE" || true
               sleep 10
             fi
-            
-            echo "Associating $PROFILE_NAME with $INSTANCE_ID..."
-            aws ec2 associate-iam-instance-profile \
-              --instance-id "$INSTANCE_ID" \
-              --iam-instance-profile Name="$PROFILE_NAME" || true
-            
-            echo "Associated profile. Waiting 15s for instance metadata update..."
-            sleep 15
           else
             echo "IAM Instance Profile already associated: $ASSOC_ID"
           fi
 
-          # 2. Wait for SSM Agent to become Online (up to 90 seconds)
-          echo "Waiting for AWS Systems Manager registration..."
-          SSM_STATUS="NotRegistered"
-          for attempt in {1..18}; do
-            SSM_STATUS=$(aws ssm describe-instance-information \
-              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
-              --query "InstanceInformationList[0].PingStatus" \
-              --output text 2>/dev/null || echo "NotRegistered")
-            
-            echo "SSM Agent Status: $SSM_STATUS (attempt $attempt/18)"
-            if [ "$SSM_STATUS" = "Online" ]; then
-              break
-            fi
-            sleep 5
-          done
+          # 2. Check if SSM Agent is Online
+          SSM_STATUS=$(aws ssm describe-instance-information \
+            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+            --query "InstanceInformationList[0].PingStatus" \
+            --output text 2>/dev/null || echo "NotRegistered")
 
-          if [ "$SSM_STATUS" != "Online" ]; then
-            echo "⚠️ Target EC2 instance ($INSTANCE_ID) is running, but SSM Agent is not yet Online (Status: $SSM_STATUS)."
-            echo "=== Fetching EC2 System Console Log ==="
-            aws ec2 get-console-output --instance-id "$INSTANCE_ID" --output text | tail -n 80 || echo "Console log not yet available"
+          if [ "$SSM_STATUS" = "Online" ]; then
+            echo "✅ SSM Agent is Online! Deploying via AWS Systems Manager..."
+            COMMAND_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --comment "Automated CI/CD deployment from GitHub Actions commit ${{ github.sha }}" \
+              --parameters 'commands=[
+                "set -ex",
+                "export HOME=/root",
+                "chown -R root:root /opt/arcon || true",
+                "git config --system --add safe.directory /opt/arcon || true",
+                "cd /opt/arcon",
+                "git fetch origin",
+                "git checkout '${{ github.ref_name }}'",
+                "git reset --hard origin/'${{ github.ref_name }}'",
+                "docker compose up -d --build",
+                "docker image prune -f"
+              ]' \
+              --query "Command.CommandId" \
+              --output text)
+
+            echo "SSM Command dispatched. Command ID: $COMMAND_ID"
+            echo "Waiting for deployment to complete..."
+
+            for i in {1..70}; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$COMMAND_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --query "Status" \
+                --output text 2>/dev/null || echo "Pending")
+              echo "Deployment status: $STATUS (check $i/70)"
+              if [ "$STATUS" = "Success" ]; then
+                echo "🎉 Deployment succeeded via AWS SSM!"
+                aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardOutputContent" --output text | tail -n 50
+                exit 0
+              elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+                echo "❌ Deployment ended with status: $STATUS"
+                aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardOutputContent" --output text
+                aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardErrorContent" --output text
+                exit 1
+              fi
+              sleep 10
+            done
             exit 1
           fi
 
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --comment "Automated CI/CD deployment from GitHub Actions commit ${{ github.sha }}" \
-            --parameters 'commands=[
-              "set -ex",
-              "export HOME=/root",
-              "chown -R root:root /opt/arcon || true",
-              "git config --system --add safe.directory /opt/arcon || true",
-              "cd /opt/arcon",
-              "git fetch origin",
-              "git checkout '${{ github.ref_name }}'",
-              "git reset --hard origin/'${{ github.ref_name }}'",
-              "docker compose up -d --build",
-              "docker image prune -f"
-            ]' \
-            --query "Command.CommandId" \
-            --output text)
-
-          echo "SSM Command dispatched. Command ID: $COMMAND_ID"
-          echo "Waiting for deployment to complete..."
+          echo "⚠️ SSM Agent is not Online ($SSM_STATUS). Falling back to EC2 Instance Connect + SSH..."
           
-          for i in {1..70}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --query "Status" \
-              --output text 2>/dev/null || echo "Pending")
-            echo "Deployment status: $STATUS (check $i/70)"
-            if [ "$STATUS" = "Success" ]; then
-              echo "Deployment succeeded!"
-              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardOutputContent" --output text | tail -n 50
-              exit 0
-            elif [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
-              echo "Deployment ended with status: $STATUS"
-              echo "=== Standard Output ==="
-              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardOutputContent" --output text
-              echo "=== Standard Error ==="
-              aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" --query "StandardErrorContent" --output text
-              exit 1
-            fi
-            sleep 10
-          done
-          echo "Deployment timed out waiting for SSM completion."
+          PUBLIC_IP=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+          AZ=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].Placement.AvailabilityZone" --output text)
+          SG_ID=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" --output text)
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)
+          
+          echo "Target Public IP: $PUBLIC_IP"
+          echo "Availability Zone: $AZ"
+          echo "Security Group: $SG_ID"
+          echo "Runner IP: $RUNNER_IP"
+
+          # Temporarily authorize Port 22 for this GitHub Runner
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$SG_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "$RUNNER_IP/32" 2>/dev/null || true
+
+          # Generate temporary SSH key pair
+          ssh-keygen -t rsa -b 3072 -f /tmp/arcon_deploy_key -N "" -q
+
+          # Push public key to EC2 Instance Connect
+          if aws ec2-instance-connect send-ssh-public-key \
+            --instance-id "$INSTANCE_ID" \
+            --availability-zone "$AZ" \
+            --instance-os-user ubuntu \
+            --ssh-public-key file:///tmp/arcon_deploy_key.pub; then
+            
+            echo "Successfully sent SSH public key via EC2 Instance Connect. Connecting..."
+            
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -i /tmp/arcon_deploy_key ubuntu@"$PUBLIC_IP" << 'DEPLOY_SCRIPT'
+              set -ex
+              echo "=== Starting Arcon Deployment on Host ==="
+              cd /opt/arcon
+              sudo git config --system --add safe.directory /opt/arcon || true
+              sudo git fetch origin
+              sudo git checkout main
+              sudo git reset --hard origin/main
+              sudo docker compose up -d --build
+              sudo docker image prune -f
+              echo "=== Arcon Deployment Completed Successfully ==="
+DEPLOY_SCRIPT
+
+            # Revoke temporary SSH rule
+            aws ec2 revoke-security-group-ingress \
+              --group-id "$SG_ID" \
+              --protocol tcp \
+              --port 22 \
+              --cidr "$RUNNER_IP/32" 2>/dev/null || true
+              
+            echo "🎉 Deployment successfully executed via EC2 Instance Connect!"
+            exit 0
+          else
+            echo "EC2 Instance Connect failed. Revoking SSH ingress..."
+            aws ec2 revoke-security-group-ingress \
+              --group-id "$SG_ID" \
+              --protocol tcp \
+              --port 22 \
+              --cidr "$RUNNER_IP/32" 2>/dev/null || true
+          fi
+
+          echo ""
+          echo "⚠️ Automated deployment methods could not reach $INSTANCE_ID."
+          echo "💡 To permanently enable 1-click deployments:"
+          echo "   1. Open AWS EC2 Console -> Instances"
+          echo "   2. Select '$INSTANCE_ID' ('arcon-production')"
+          echo "   3. Click Actions -> Security -> Modify IAM Role"
+          echo "   4. Attach IAM role: 'quant-lab-arcon-ec2-role'"
+          echo "   5. Within 60 seconds, future git pushes will auto-deploy via SSM!"
           exit 1
