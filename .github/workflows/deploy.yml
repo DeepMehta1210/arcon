@@ -97,11 +97,21 @@ jobs:
             echo "IAM Instance Profile already associated: $ASSOC_ID"
           fi
 
-          # 2. Check if SSM Agent is Online
-          SSM_STATUS=$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
-            --query "InstanceInformationList[0].PingStatus" \
-            --output text 2>/dev/null || echo "NotRegistered")
+          # 2. Check if SSM Agent is Online (polls for up to 60s)
+          echo "Checking AWS Systems Manager registration..."
+          SSM_STATUS="NotRegistered"
+          for attempt in {1..12}; do
+            SSM_STATUS=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || echo "NotRegistered")
+            
+            echo "SSM Agent Status: $SSM_STATUS (attempt $attempt/12)"
+            if [ "$SSM_STATUS" = "Online" ]; then
+              break
+            fi
+            sleep 5
+          done
 
           if [ "$SSM_STATUS" = "Online" ]; then
             echo "✅ SSM Agent is Online! Deploying via AWS Systems Manager..."
