@@ -266,28 +266,14 @@ export async function enrichAndPersonalizeLead(
   const rawFirstName = (discoveredPersonName || "").split(/\s+/)[0] || "";
   const firstName = rawFirstName ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1) : "";
 
-  const subject =
-    dossier.recommendedOutreach?.tailoredSubject ||
-    "cloud bill";
+  const singleDraft = generateSingleHighConvertingDraft(
+    { companyName: cleanedCompany, contactName: discoveredPersonName },
+    "Deep Mehta",
+    "deep@3dices.com"
+  );
 
-  const body =
-    dossier.recommendedOutreach?.tailoredBody ||
-    `Hi ${firstName || "there"},
-
-Ran a quick review of ${cleanedCompany}'s cloud infrastructure footprint.
-
-Most engineering teams running on AWS pay on-demand compute rates when Graviton instances and Compute Savings Plans deliver the exact same performance for 35–40% less.
-
-Took 2 minutes to calculate the monthly delta for your setup.
-
-Is this accurate for your current infrastructure?
-
-Best regards,
-Deep Mehta
-AWS Certified Solutions Architect – Professional | Founder
-3 Dices Technology | https://3dices.com
-LinkedIn: https://linkedin.com/in/deepmehta
-PS: Cut monthly AWS spend by 38% for a fintech last month without touching application code.`;
+  const subject = singleDraft.subject;
+  const body = singleDraft.body;
 
   const dynamicScore = calculateDynamicIcpScore({
     textCorpus: `${cleanedCompany} ${dossier.company.description} ${(dossier.company.techStack || []).join(" ")}`,
@@ -322,3 +308,43 @@ PS: Cut monthly AWS spend by 38% for a fintech last month without touching appli
     dossier
   };
 }
+
+/**
+ * Single High-Converting Outbound Draft Generator.
+ * Strictly adheres to Lemlist cold outreach standards:
+ * - 1-3 words lowercase subject line (e.g., 'quick question')
+ * - Under 75 words body (well below 80-word limit)
+ * - Zero corporate slop or fake flattery
+ * - Zero time-asks (no '10-minute call', no 'hop on')
+ * - Friction-free conversation starter CTA
+ * - Trust-stacked AWS Solutions Architect signature
+ */
+export function generateSingleHighConvertingDraft(
+  lead: { companyName: string; contactName?: string },
+  repName = "Deep Mehta",
+  repEmail = "deep@3dices.com"
+): { subject: string; body: string } {
+  const company = cleanCompanyName(lead.companyName);
+  const rawFirstName = lead.contactName ? cleanPersonName(lead.contactName).split(/\s+/)[0] : "";
+  const name = rawFirstName ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase() : "there";
+
+  const subject = "quick question";
+
+  const body = `Hi ${name},
+
+Ran a quick review of ${company}'s infrastructure footprint.
+
+Most agencies bill clients for hosting but lose 30-40% of their margin to unoptimized AWS servers or scramble during traffic surges.
+
+At 3 Dices, we manage AWS autoscaling and 24/7 cloud DevOps under your brand—protecting client uptime without hiring a full-time engineer.
+
+Open to seeing how our white-label model works?
+
+Best regards,
+${repName}
+AWS Solutions Architect | 3 Dices
+https://3dices.com`;
+
+  return { subject, body };
+}
+

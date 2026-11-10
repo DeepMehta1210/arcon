@@ -58,7 +58,7 @@ import {
   isGenericEmail,
   isValidEmail,
   StoredLead,
-  ANGLE_PRESETS
+  generateSingleHighConvertingDraft
 } from "./components/SalesReviewView";
 
 const TEAM_SENDERS = [
@@ -101,14 +101,13 @@ export default function ArconDashboard() {
   const [selectedStageFilter, setSelectedStageFilter] = useState<string>("all");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Selected lead for centered modal (3 tabs: Steps & Raw Data, Mail Composer, SOW Proposal)
+  // Selected lead for centered modal (2 tabs: Pitch Composer, All 5 Steps & Raw Data)
   const [selectedLead, setSelectedLead] = useState<StoredLead | null>(null);
-  const [modalTab, setModalTab] = useState<"steps" | "mail" | "sow">("steps");
+  const [modalTab, setModalTab] = useState<"mail" | "steps">("mail");
   const [expandedStepJson, setExpandedStepJson] = useState<Record<number, boolean>>({});
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [activePitchTouch, setActivePitchTouch] = useState<1 | 2 | 3>(1);
   const [showPrompts, setShowPrompts] = useState(false);
-  const [selectedAngleId, setSelectedAngleId] = useState<string>("site_speed");
   const [mailSubject, setMailSubject] = useState("");
   const [mailBody, setMailBody] = useState("");
   const [mailTargetEmail, setMailTargetEmail] = useState("");
@@ -116,9 +115,6 @@ export default function ArconDashboard() {
   const [mailSending, setMailSending] = useState(false);
   const [mailSuccess, setMailSuccess] = useState<string | null>(null);
   const [mailError, setMailError] = useState<string | null>(null);
-  const [generatedSow, setGeneratedSow] = useState<string | null>(null);
-  const [sowLoading, setSowLoading] = useState(false);
-  const [copiedSow, setCopiedSow] = useState(false);
 
   // Autonomous Sourcing modal state
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
@@ -395,11 +391,10 @@ export default function ArconDashboard() {
     setModalTab("mail");
   };
 
-  // Open Lead Pop-up in Middle with selected tab ("steps" | "mail" | "sow")
-  const openLeadModal = (lead: StoredLead, initialTab: "steps" | "mail" | "sow" = "steps") => {
+  // Open Lead Pop-up in Middle with selected tab ("mail" | "steps")
+  const openLeadModal = (lead: StoredLead, initialTab: "mail" | "steps" = "mail") => {
     setSelectedLead(lead);
     setModalTab(initialTab);
-    setGeneratedSow(null);
     setMailSuccess(null);
     setMailError(null);
     setActivePitchTouch(1);
@@ -413,28 +408,41 @@ export default function ArconDashboard() {
       "";
     setMailTargetEmail(bestEmail);
 
-    const defaultAngle = ANGLE_PRESETS[0];
-    setSelectedAngleId(defaultAngle.id);
     const repName = currentUser?.name || "Deep Mehta";
     const repEmail = currentUser?.email || "deep@3dices.com";
     setMailSender(currentUser?.email || "deep@3dices.com");
 
+    const singleDraft = generateSingleHighConvertingDraft(lead, repName, repEmail);
+
     const existingSubject = (lead.signalData as any)?.draftEmail?.subject || (lead.signalData as any)?.sequence?.email1?.subject;
     const existingBody = (lead.signalData as any)?.draftEmail?.body || (lead.signalData as any)?.sequence?.email1?.body;
 
-    setMailSubject(existingSubject || defaultAngle.getSubject(lead));
-    setMailBody(existingBody || defaultAngle.getBody(lead, repName, repEmail));
+    const isExistingSubjectCompliant =
+      typeof existingSubject === "string" &&
+      existingSubject.trim().split(/\s+/).filter(Boolean).length <= 3 &&
+      existingSubject === existingSubject.toLowerCase();
+    const isExistingBodyCompliant =
+      typeof existingBody === "string" &&
+      existingBody.trim().split(/\s+/).filter(Boolean).length <= 80 &&
+      !/\b(10-minute|15-minute|quick call|hop on|discovery call)\b/i.test(existingBody);
+
+    if (isExistingSubjectCompliant && isExistingBodyCompliant) {
+      setMailSubject(existingSubject);
+      setMailBody(existingBody);
+    } else {
+      setMailSubject(singleDraft.subject);
+      setMailBody(singleDraft.body);
+    }
   };
 
-  // Switch angle preset inside Mail tab
-  const handleSelectAngle = (angleId: string) => {
+  // Reset to single high-converting draft
+  const handleResetToHighConvertingDraft = () => {
     if (!selectedLead) return;
-    setSelectedAngleId(angleId);
-    const angle = ANGLE_PRESETS.find((a) => a.id === angleId) || ANGLE_PRESETS[0];
     const repName = currentUser?.name || "Deep Mehta";
     const repEmail = mailSender || currentUser?.email || "deep@3dices.com";
-    setMailSubject(angle.getSubject(selectedLead));
-    setMailBody(angle.getBody(selectedLead, repName, repEmail));
+    const single = generateSingleHighConvertingDraft(selectedLead, repName, repEmail);
+    setMailSubject(single.subject);
+    setMailBody(single.body);
   };
 
   // Dispatch live pitch email via Zoho SMTP
@@ -480,45 +488,7 @@ export default function ArconDashboard() {
     }
   };
 
-  // Generate White-Label Partner SOW Proposal
-  const handleGenerateProposal = async (lead: StoredLead) => {
-    setSowLoading(true);
-    const comp = cleanCompanyName(lead.companyName);
-    const doc = `# White-Label Cloud & DevOps SLA Proposal
-**Partner Agency:** ${comp}  
-**Lead Infrastructure Architect:** 3 Dices Cloud Solutions  
-**Engagement Model:** Silent White-Label Backend Delivery  
 
----
-
-### 1. Executive Summary
-3 Dices provides software & digital agencies like **${comp}** with enterprise-grade AWS infrastructure, containerized auto-scaling, and 99.99% uptime guarantees—allowing you to sell lucrative monthly hosting & cloud retainers without hiring a dedicated $160k DevOps engineer.
-
-### 2. Scope of Architecture & Deliverables
-- **Managed AWS Cloud Infrastructure:** Dedicated AWS VPC, Amazon ECS/EKS container orchestration, and CloudFront CDN distribution.
-- **Autoscaling & Surge Protection:** High-availability container clusters configured for zero-crash traffic spikes and automated health checks.
-- **Security & Compliance:** Automated SSL certificate rotation, DMARC/SPF/DKIM spoof protection, and SOC2-ready posture.
-- **24/7 Incident Escalation:** Direct dedicated Slack/Teams escalation bridge with a 15-minute response SLA.
-
-### 3. Commercial Retainer Structure
-- **Boutique Tier (1–5 Client Platforms):** $1,200 / month
-- **Growth Tier (6–15 Client Platforms):** $2,500 / month
-- **Enterprise SLA (Custom Clusters):** $4,000 / month
-- **100% Agency Margin:** Fully billed and branded under ${comp}.`;
-
-    setTimeout(() => {
-      setGeneratedSow(doc);
-      setSowLoading(false);
-    }, 350);
-  };
-
-  const handleCopySow = () => {
-    if (generatedSow) {
-      navigator.clipboard.writeText(generatedSow);
-      setCopiedSow(true);
-      setTimeout(() => setCopiedSow(false), 2000);
-    }
-  };
 
   // Autonomous Sourcing Handler
   const handleSourceLeads = async (e: React.FormEvent) => {
@@ -828,7 +798,7 @@ export default function ArconDashboard() {
                 return (
                   <div
                     key={lead.id}
-                    onClick={() => openLeadModal(lead, "steps")}
+                    onClick={() => openLeadModal(lead, "mail")}
                     className="relative flex flex-col justify-between rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-950/90 p-4 transition-all duration-200 hover:border-indigo-500/40 hover:shadow-xl hover:shadow-indigo-500/5 group cursor-pointer"
                   >
                     <div>
@@ -1333,21 +1303,8 @@ Draft the personalized 3 Dices cold email following all strict rules now.`
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* The 3 Tabs */}
+                  {/* The 2 Tabs */}
                   <div className="flex items-center gap-1 rounded-xl bg-zinc-900/90 p-1 border border-zinc-800 shadow-inner">
-                    <button
-                      type="button"
-                      onClick={() => setModalTab("steps")}
-                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                        modalTab === "steps"
-                          ? "bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700 font-bold"
-                          : "text-zinc-400 hover:text-white"
-                      }`}
-                    >
-                      <Layers className="h-3.5 w-3.5 text-indigo-400" />
-                      <span>All 5 Steps & Raw Data</span>
-                    </button>
-
                     <button
                       type="button"
                       onClick={() => setModalTab("mail")}
@@ -1363,15 +1320,15 @@ Draft the personalized 3 Dices cold email following all strict rules now.`
 
                     <button
                       type="button"
-                      onClick={() => setModalTab("sow")}
+                      onClick={() => setModalTab("steps")}
                       className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
-                        modalTab === "sow"
+                        modalTab === "steps"
                           ? "bg-zinc-800 text-white shadow-sm ring-1 ring-zinc-700 font-bold"
                           : "text-zinc-400 hover:text-white"
                       }`}
                     >
-                      <FileText className="h-3.5 w-3.5 text-amber-400" />
-                      <span>SOW Proposal</span>
+                      <Layers className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>All 5 Steps & Raw Data</span>
                     </button>
                   </div>
 
@@ -2059,35 +2016,35 @@ Draft the personalized 3 Dices cold email following all strict rules now.`
                 )}
 
                 {/* ======================================================== */}
-                {/* TAB 2: AI PITCH COMPOSER (MAIL)                          */}
+                {/* TAB 1: SINGLE HIGH-CONVERTING PITCH COMPOSER             */}
                 {/* ======================================================== */}
                 {modalTab === "mail" && (
                   <div className="space-y-4">
-                    {/* 4 Value Proposition Angle Pills */}
-                    <div className="space-y-2">
-                      <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold block">
-                        Select Pitch Angle Preset
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {ANGLE_PRESETS.map((preset) => {
-                          const isSelected = selectedAngleId === preset.id;
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              onClick={() => handleSelectAngle(preset.id)}
-                              className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition cursor-pointer ${
-                                isSelected
-                                  ? "bg-zinc-800/90 border-emerald-500/60 ring-1 ring-emerald-500/40 text-white"
-                                  : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900"
-                              }`}
-                            >
-                              <span className="font-semibold text-xs leading-tight line-clamp-1">{preset.name}</span>
-                              <span className="text-[10px] text-zinc-500 mt-1 line-clamp-1">{preset.badge}</span>
-                            </button>
-                          );
-                        })}
+                    {/* Single High-Converting Outbound Engine Banner */}
+                    <div className="flex items-center justify-between p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                          <Sparkles className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-emerald-300">Single High-Converting Pitch Engine</span>
+                            <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                              Lemlist Gold Standard
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-zinc-400 block mt-0.5">
+                            Optimized for maximum reply rate: 2-word lowercase subject, 0% slop, zero time-asks, friction-free CTA.
+                          </span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleResetToHighConvertingDraft}
+                        className="rounded-lg bg-zinc-900 border border-zinc-700 hover:border-emerald-500/50 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:text-white transition cursor-pointer flex items-center gap-1 shrink-0"
+                      >
+                        <RefreshCw className="h-3 w-3 text-emerald-400" /> Reset to High-Converting
+                      </button>
                     </div>
 
                     {/* Sender & Recipient */}
@@ -2123,38 +2080,89 @@ Draft the personalized 3 Dices cold email following all strict rules now.`
                       </div>
                     </div>
 
-                    {/* Subject Line */}
+                    {/* Subject Line with Live Quality Gate */}
                     <div>
-                      <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold block mb-1">
-                        Subject Line (1-3 words, lowercase)
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
+                          Subject Line (1-3 words, lowercase)
+                        </label>
+                        {(() => {
+                          const words = mailSubject.trim().split(/\s+/).filter(Boolean);
+                          const isLower = mailSubject === mailSubject.toLowerCase();
+                          const isValid = words.length >= 1 && words.length <= 3 && isLower;
+                          return (
+                            <span className={`text-[10px] font-mono flex items-center gap-1 ${
+                              isValid ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"
+                            }`}>
+                              {isValid ? (
+                                <>✓ {words.length}/3 words • lowercase (highest open rate)</>
+                              ) : (
+                                <>⚠️ Must be 1-3 lowercase words (currently {words.length} words{!isLower ? ", has uppercase" : ""})</>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </div>
                       <input
                         type="text"
                         value={mailSubject}
                         onChange={(e) => setMailSubject(e.target.value)}
+                        placeholder="quick question"
                         className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs font-medium text-white placeholder-zinc-600 focus:border-zinc-700 focus:outline-none font-mono"
                       />
                     </div>
 
-                    {/* Email Body */}
+                    {/* Email Body with Live Linter Indicators */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold">
                           Email Body
                         </label>
-                        <span className={`text-[10px] font-mono ${
-                          mailBody.split(/\s+/).filter(Boolean).length <= 80 ? "text-emerald-400" : "text-amber-400 font-bold"
-                        }`}>
-                          {mailBody.split(/\s+/).filter(Boolean).length} words • {mailBody.split(/\s+/).filter(Boolean).length <= 80 ? "Under 80-word limit" : "Exceeds 80 words"}
-                        </span>
+                        {(() => {
+                          const words = mailBody.trim().split(/\s+/).filter(Boolean).length;
+                          const hasTimeAsk = /\b(10-minute|15-minute|quick call|hop on|jump on a call|discovery call|check your calendar)\b/i.test(mailBody);
+                          return (
+                            <span className={`text-[10px] font-mono ${
+                              words <= 80 && !hasTimeAsk ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"
+                            }`}>
+                              {words} words • {words <= 80 ? "Under 80-word limit" : "Exceeds 80 words"}{hasTimeAsk ? " • ⚠️ Prohibited time-ask detected" : ""}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <textarea
-                        rows={8}
+                        rows={9}
                         value={mailBody}
                         onChange={(e) => setMailBody(e.target.value)}
                         className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 p-3 text-xs leading-relaxed text-zinc-200 focus:border-zinc-700 focus:outline-none font-sans"
                       />
                     </div>
+
+                    {/* Linter Quality Gate Summary Bar */}
+                    {(() => {
+                      const subjectWords = mailSubject.trim().split(/\s+/).filter(Boolean);
+                      const isSubjectValid = subjectWords.length >= 1 && subjectWords.length <= 3 && mailSubject === mailSubject.toLowerCase();
+                      const bodyWords = mailBody.trim().split(/\s+/).filter(Boolean).length;
+                      const hasTimeAsk = /\b(10-minute|15-minute|quick call|hop on|jump on a call|discovery call|check your calendar)\b/i.test(mailBody);
+                      const isBodyValid = bodyWords > 0 && bodyWords <= 80 && !hasTimeAsk;
+                      const isAllValid = isSubjectValid && isBodyValid;
+
+                      if (isAllValid) {
+                        return (
+                          <div className="flex items-center gap-2 rounded-xl bg-emerald-950/40 border border-emerald-500/40 p-2.5 text-xs text-emerald-300">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                            <span>✓ High-Converting Lemlist Gate Passed: 2-word lowercase subject, {bodyWords} words body, zero time-asks. Ready to dispatch.</span>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="flex items-center gap-2 rounded-xl bg-amber-950/40 border border-amber-500/40 p-2.5 text-xs text-amber-300">
+                            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                            <span>⚠️ Copy linter warning: {!isSubjectValid ? "Subject must be 1-3 lowercase words. " : ""}{!isBodyValid ? (hasTimeAsk ? "Remove time-asks (e.g. '10-minute'). " : "Body exceeds 80 words limit.") : ""} Click "Reset to High-Converting" above to auto-fix.</span>
+                          </div>
+                        );
+                      }
+                    })()}
 
                     {/* Delivery Alerts */}
                     {mailSuccess && (
@@ -2206,60 +2214,6 @@ Draft the personalized 3 Dices cold email following all strict rules now.`
                         {mailSending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         <span>{mailSending ? "Dispatching via Zoho..." : "Approve & Send Now"}</span>
                       </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ======================================================== */}
-                {/* TAB 3: WHITE-LABEL SOW PROPOSAL                          */}
-                {/* ======================================================== */}
-                {modalTab === "sow" && (
-                  <div className="space-y-4">
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-semibold text-zinc-200 uppercase tracking-wider text-xs flex items-center gap-1.5">
-                            <FileText className="h-4 w-4 text-amber-400" /> White-Label Partner Proposal (SOW)
-                          </span>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">
-                            Turnkey Scope of Work & Retainer SLA agreement branded for {cleanCompanyName(selectedLead.companyName)}.
-                          </p>
-                        </div>
-
-                        <button
-                          onClick={() => handleGenerateProposal(selectedLead)}
-                          disabled={sowLoading}
-                          className="flex items-center gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 text-xs text-zinc-200 font-medium transition cursor-pointer disabled:opacity-40"
-                        >
-                          {sowLoading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-400" />}
-                          <span>{sowLoading ? "Synthesizing..." : "Generate Proposal"}</span>
-                        </button>
-                      </div>
-
-                      {generatedSow ? (
-                        <div className="space-y-2 pt-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
-                              <Check className="h-3.5 w-3.5" /> Proposal Ready for Agency Partner
-                            </span>
-                            <button
-                              onClick={handleCopySow}
-                              className="text-xs text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 cursor-pointer"
-                            >
-                              {copiedSow ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                              <span>{copiedSow ? "Copied to Clipboard!" : "Copy Markdown"}</span>
-                            </button>
-                          </div>
-                          <pre className="max-h-96 overflow-y-auto rounded-xl bg-zinc-950 p-4 text-xs text-zinc-200 font-mono whitespace-pre-wrap leading-relaxed border border-zinc-800">
-                            {generatedSow}
-                          </pre>
-                        </div>
-                      ) : (
-                        <div className="text-center py-10 text-zinc-500 space-y-2">
-                          <FileText className="h-8 w-8 mx-auto text-zinc-600" />
-                          <p className="text-xs">Click "Generate Proposal" to synthesize an enterprise White-Label SOW SLA.</p>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}

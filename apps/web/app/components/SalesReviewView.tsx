@@ -202,50 +202,43 @@ export function isLeadReadyForSalesReview(lead: StoredLead): boolean {
   return hasContent;
 }
 
+export function generateSingleHighConvertingDraft(
+  lead: StoredLead | { companyName: string; contactName?: string },
+  repName = "Deep Mehta",
+  repEmail = "deep@3dices.com"
+): { subject: string; body: string } {
+  const company = cleanCompanyName(lead.companyName);
+  const rawFirstName = lead.contactName ? cleanPersonName(lead.contactName).split(/\s+/)[0] : "";
+  const name = rawFirstName ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1).toLowerCase() : "there";
+
+  const subject = "quick question";
+
+  const body = `Hi ${name},
+
+Ran a quick review of ${company}'s infrastructure footprint.
+
+Most agencies bill clients for hosting but lose 30-40% of their margin to unoptimized AWS servers or scramble during traffic surges.
+
+At 3 Dices, we manage AWS autoscaling and 24/7 cloud DevOps under your brand—protecting client uptime without hiring a full-time engineer.
+
+Open to seeing how our white-label model works?
+
+Best regards,
+${repName}
+AWS Solutions Architect | 3 Dices
+https://3dices.com`;
+
+  return { subject, body };
+}
+
 export const ANGLE_PRESETS = [
   {
-    id: "site_speed",
-    name: "⚡ Site Speed & TTFB",
-    badge: "Creative Studios",
-    getSubject: (lead: StoredLead) => `Question regarding ${cleanCompanyName(lead.companyName)}'s site latency`,
-    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
-      const name = lead.contactName?.split(" ")[0] || "there";
-      const company = cleanCompanyName(lead.companyName);
-      return `Hi ${name},\n\nRan a quick benchmark on ${company}'s digital showcase—noticeable initial server latency during peak hours.\n\nAt 3 Dices, we serve as the silent cloud partner for boutique design agencies. We optimize Edge CDN and AWS caching so your client builds pass Core Web Vitals with sub-100ms TTFB without changing your front-end stack.\n\nOpen to a 10-minute chat this Thursday to see how we back other design studios?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
-    }
-  },
-  {
-    id: "aws_margin",
-    name: "💰 40% AWS Margin",
-    badge: "Dev Shops",
-    getSubject: (lead: StoredLead) => `White-label cloud infrastructure for ${cleanCompanyName(lead.companyName)}'s clients`,
-    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
-      const name = lead.contactName?.split(" ")[0] || "there";
-      const company = cleanCompanyName(lead.companyName);
-      return `Hi ${name},\n\nMost agencies we speak with bill clients for hosting/maintenance but lose 30-40% of their margin to unoptimized on-demand AWS server spend.\n\nAt 3 Dices, we handle AWS architecture, autoscaling, and 24/7 DevOps under your agency's brand—allowing you to offer enterprise SLA hosting retainers without hiring a dedicated $160k cloud engineer.\n\nWould you be open to a quick 10-minute intro this week to explore a white-label partnership?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
-    }
-  },
-  {
-    id: "ecommerce_surge",
-    name: "🛒 E-Commerce Surge",
-    badge: "Shopify / WooCommerce",
-    getSubject: (lead: StoredLead) => `Black Friday & traffic surge protection for ${cleanCompanyName(lead.companyName)}'s stores`,
-    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
-      const name = lead.contactName?.split(" ")[0] || "there";
-      const company = cleanCompanyName(lead.companyName);
-      return `Hi ${name},\n\nFor high-volume client stores, a 2-second slowdown during a marketing campaign cuts conversions by 26%.\n\nAt 3 Dices, we act as the silent backend partner for e-commerce studios—hardening database queries, autoscaling Redis/Aurora clusters, and guaranteeing zero crash cutovers under sudden 10x traffic spikes.\n\nWorth a quick 10-minute call this Thursday to see if we can support your upcoming client launches?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
-    }
-  },
-  {
-    id: "security_sla",
-    name: "🛡️ Enterprise SLA & DMARC",
-    badge: "Enterprise / Gov",
-    getSubject: (lead: StoredLead) => `Security audit & SLA guarantee for ${cleanCompanyName(lead.companyName)}`,
-    getBody: (lead: StoredLead, repName: string, repEmail: string) => {
-      const name = lead.contactName?.split(" ")[0] || "there";
-      const company = cleanCompanyName(lead.companyName);
-      return `Hi ${name},\n\nNotice ${company} is delivering high-end digital platforms for ambitious brands.\n\nWhen winning larger enterprise clients, SOC2 compliance, ISO 27001 posture, and strict 99.99% uptime SLAs often become the deciding factor.\n\nAt 3 Dices, we provide white-label enterprise cloud compliance, automated Terraform infrastructure, and 24/7 incident response so your agency can win and retain tier-1 contracts with confidence.\n\nWould you have 10 minutes this Thursday for a brief introduction?\n\nBest regards,\n${repName}\nFounder & AWS Solutions Architect | 3 Dices\n${repEmail}`;
-    }
+    id: "high_converting",
+    name: "⚡ Single High-Converting Pitch",
+    badge: "Lemlist Standard",
+    getSubject: (lead: StoredLead) => "quick question",
+    getBody: (lead: StoredLead, repName: string, repEmail: string) =>
+      generateSingleHighConvertingDraft(lead, repName, repEmail).body
   }
 ];
 
@@ -391,21 +384,26 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
       const draft = (currentLead.signalData as any)?.draftEmail;
       const dossier = (currentLead.signalData as any)?.dossier;
 
-      const cleanName = cleanCompanyName(currentLead.companyName);
-      const contactPerson = currentLead.contactName || dossier?.decisionMaker?.fullName || "";
-      const rawFirstName = contactPerson.split(/\s+/)[0] || "";
-      const firstName = rawFirstName ? rawFirstName.charAt(0).toUpperCase() + rawFirstName.slice(1) : "";
+      const single = generateSingleHighConvertingDraft(
+        currentLead,
+        currentUser?.name || "Deep Mehta",
+        currentUser?.email || "deep@3dices.com"
+      );
 
-      const initialSubject =
-        draft?.subject ||
-        dossier?.recommendedOutreach?.tailoredSubject ||
-        `White-label AWS architecture partner for ${cleanName}`;
+      const existingSubject = draft?.subject || dossier?.recommendedOutreach?.tailoredSubject;
+      const existingBody = draft?.body || currentLead.notes || dossier?.recommendedOutreach?.tailoredBody;
 
-      const initialBody =
-        draft?.body ||
-        currentLead.notes ||
-        dossier?.recommendedOutreach?.tailoredBody ||
-        `Hi ${firstName || "there"},\n\nRan a quick benchmark on ${cleanName}'s client platforms—noticeable server latency during peak hours.\n\nAt 3 Dices, we serve as the silent cloud partner for boutique design agencies. We optimize Edge CDN and AWS caching so your client builds pass Core Web Vitals with sub-100ms TTFB without changing your front-end stack.\n\nOpen to a 10-minute chat this Thursday to see how we back other design studios?\n\nBest regards,\n${currentUser?.name || "Deep Mehta"}\nFounder & AWS Solutions Architect | 3 Dices\n${currentUser?.email || "deep@3dices.com"}`;
+      const isSubjectOk =
+        typeof existingSubject === "string" &&
+        existingSubject.trim().split(/\s+/).filter(Boolean).length <= 3 &&
+        existingSubject === existingSubject.toLowerCase();
+      const isBodyOk =
+        typeof existingBody === "string" &&
+        existingBody.trim().split(/\s+/).filter(Boolean).length <= 80 &&
+        !/\b(10-minute|15-minute|quick call|hop on|discovery call)\b/i.test(existingBody);
+
+      const initialSubject = isSubjectOk ? existingSubject : single.subject;
+      const initialBody = isBodyOk ? existingBody : single.body;
 
       const personalCandidate = currentLead.emailCandidates.find((e) => !isGenericEmail(e) && isValidEmail(e));
       const initialEmail =
@@ -949,37 +947,37 @@ export function SalesReviewView({ currentUser, leads, onLeadsUpdated }: SalesRev
                 </button>
               </div>
 
-              {/* Quick Angle Switcher Pills */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                  Switch Value Proposition:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {ANGLE_PRESETS.map((preset) => {
-                    const isSelected = selectedAngleId === preset.id;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedAngleId(preset.id);
-                          const repName = currentUser?.name || "Deep Mehta";
-                          const repEmail = currentUser?.email || "deep@3dices.com";
-                          setSubject(preset.getSubject(currentLead));
-                          setBody(preset.getBody(currentLead, repName, repEmail));
-                        }}
-                        className={`rounded-lg px-2.5 py-1 text-xs font-medium transition flex items-center gap-1.5 ${
-                          isSelected
-                            ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800"
-                        }`}
-                      >
-                        <span>{preset.name}</span>
-                        <span className="text-[10px] text-zinc-500 opacity-80">({preset.badge})</span>
-                      </button>
-                    );
-                  })}
+              {/* Single High-Converting Pitch Engine */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-950/20 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded bg-emerald-500/20 text-emerald-400 font-bold text-xs">
+                    ⚡
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-emerald-300">Single High-Converting Pitch</span>
+                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                        Lemlist Standard
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 block mt-0.5">
+                      2-word subject, 0% corporate slop, zero time-asks, friction-free CTA.
+                    </span>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const repName = currentUser?.name || "Deep Mehta";
+                    const repEmail = currentUser?.email || "deep@3dices.com";
+                    const draft = generateSingleHighConvertingDraft(currentLead, repName, repEmail);
+                    setSubject(draft.subject);
+                    setBody(draft.body);
+                  }}
+                  className="rounded bg-zinc-900 border border-zinc-700 hover:border-emerald-500/50 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:text-white transition cursor-pointer flex items-center gap-1 shrink-0"
+                >
+                  <RefreshCw className="h-3 w-3 text-emerald-400" /> Reset to High-Converting
+                </button>
               </div>
 
               {/* Sender & Target Row */}

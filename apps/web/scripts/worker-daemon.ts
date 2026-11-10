@@ -202,7 +202,7 @@ async function runInboundReplySyncCycle() {
     const fetchResult = await fetchInboundReplies();
     if (fetchResult.success && fetchResult.messages.length > 0) {
       const summary = await syncInboundRepliesToPostgres(fetchResult.messages);
-      console.log(`[WorkerDaemon:ReplySync] Inbound sync finished: ${fetchResult.messages.length} messages inspected, ${summary.matchedLeadsCount} matched to pipeline leads.`);
+      console.log(`[WorkerDaemon:ReplySync] Inbound sync finished: ${fetchResult.messages.length} messages inspected, ${summary.matchedContacts} matched to pipeline leads.`);
     }
   } catch (err) {
     console.warn("[WorkerDaemon:ReplySync] IMAP sync skipped:", (err as Error).message);
