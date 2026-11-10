@@ -529,17 +529,17 @@ export default function ArconDashboard() {
     }
   };
 
-  // Daily Curated Queue Count (Capped at 25 for achievable daily target)
+  // Daily Curated Queue Count (Full count of all verified outreach leads ready to pitch)
   const todayQueueCount = useMemo(() => {
     const ready = leads.filter(isLeadReadyForSalesReview);
-    return Math.min(ready.length, 25);
+    return ready.length;
   }, [leads]);
 
-  // Today's Outreach Leads (Curated priority 25)
+  // Today's Outreach Leads (All qualified ready-to-pitch leads sorted by match score)
   const todayLeads = useMemo(() => {
     const qualified = leads.filter(isLeadReadyForSalesReview);
     const pool = qualified.length > 0 ? qualified : leads;
-    return [...pool].sort((a, b) => (b.score || 0) - (a.score || 0)).slice(0, 25);
+    return [...pool].sort((a, b) => (b.score || 0) - (a.score || 0));
   }, [leads]);
 
   // Filtered leads: starts with Today's Outreach by default

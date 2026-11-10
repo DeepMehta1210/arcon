@@ -146,9 +146,11 @@ jobs:
                 "chown -R root:root /opt/arcon || true",
                 "git config --system --add safe.directory /opt/arcon || true",
                 "cd /opt/arcon",
+                "cp /opt/arcon/packages/database/data/imported-leads.json /tmp/ec2-leads-backup.json || true",
                 "git fetch origin",
                 "git checkout '${{ github.ref_name }}'",
                 "git reset --hard origin/'${{ github.ref_name }}'",
+                "python3 -c \"import json, os; bp, cp = '/tmp/ec2-leads-backup.json', '/opt/arcon/packages/database/data/imported-leads.json'; (lambda b, c: (json.dump(c + [x for x in b if (x.get('id') or x.get('companyName')) not in {y.get('id') or y.get('companyName') for y in c}], open(cp, 'w'), indent=2))) (json.load(open(bp)), json.load(open(cp))) if os.path.exists(bp) and os.path.exists(cp) else None\" || true",
                 "docker compose up -d --build",
                 "docker image prune -f"
               ]' \
@@ -212,7 +214,7 @@ jobs:
             echo "Successfully sent SSH public key via EC2 Instance Connect. Connecting..."
             
             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -i /tmp/arcon_deploy_key ubuntu@"$PUBLIC_IP" \
-              "sudo git config --system --add safe.directory /opt/arcon && cd /opt/arcon && sudo git fetch origin && sudo git checkout main && sudo git reset --hard origin/main && sudo docker compose up -d --build && sudo docker image prune -f"
+              "sudo git config --system --add safe.directory /opt/arcon && cd /opt/arcon && sudo cp packages/database/data/imported-leads.json /tmp/ec2-leads-backup.json || true; sudo git fetch origin && sudo git checkout main && sudo git reset --hard origin/main && sudo python3 -c \"import json, os; bp, cp = '/tmp/ec2-leads-backup.json', '/opt/arcon/packages/database/data/imported-leads.json'; (lambda b, c: (json.dump(c + [x for x in b if (x.get('id') or x.get('companyName')) not in {y.get('id') or y.get('companyName') for y in c}], open(cp, 'w'), indent=2))) (json.load(open(bp)), json.load(open(cp))) if os.path.exists(bp) and os.path.exists(cp) else None\" || true; sudo docker compose up -d --build && sudo docker image prune -f"
 
             # Revoke temporary SSH rule
             aws ec2 revoke-security-group-ingress \
